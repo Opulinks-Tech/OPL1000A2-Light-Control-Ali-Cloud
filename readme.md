@@ -7,7 +7,7 @@
 - Use Ali Cloud Intelligent APP to control "light control" device.   
 
 ## Work Frame
-![avatar](light_control_device_frame.png)
+![avatar](https://github.com/Opulinks-Tech/OPL1000A2-Light-Control-Reference-Code-Ali-Cloud-with-MQTT/blob/master/light_control_device_frame.PNG)
 
 ## Directory and Content 
 
