@@ -54,6 +54,7 @@ typedef struct transport_s {
         transport_tx_func_t active_func;
 				uint16_t hdl; //Kevin add it
 				uint16_t conn_hdl; //Kevin add it
+        void *mutex_indicate_done;
     } tx;
     struct {
         uint8_t buff[RX_BUFF_LEN];

@@ -63,7 +63,6 @@ void awss_report_token_to_cloud_timer(void)
 	hal_ali_netlink_Task_MsgSend(ALI_NETLINK_AWSS_REPORT_TOKEN_TO_CLOUD, NULL, 0);
 }
 
-
 int awss_update_token()
 {
     awss_report_token_time = 0;

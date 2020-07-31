@@ -9,6 +9,7 @@
 #include "iotx_coap_internal.h"
 #include "CoAPPlatform.h"
 #include "CoAPInternal.h"
+#include "infra_config.h"
 
 #ifndef COAP_OBSERVE_SERVER_DISABLE
 int CoAPObsServer_init(CoAPContext *context, unsigned char        obs_maxcount)
@@ -260,7 +261,7 @@ int CoAPObsClient_deinit(CoAPContext *context)
     return COAP_SUCCESS;
 }
 
-int CoAPObsClient_add(CoAPContext *context, CoAPMessage *message, NetworkAddr *remote, CoAPSendNode *sendnode)
+SHM_DATA int CoAPObsClient_add(CoAPContext *context, CoAPMessage *message, NetworkAddr *remote, CoAPSendNode *sendnode)
 {
     CoAPObservable *node = NULL, *next =  NULL;
     CoAPIntContext *ctx = (CoAPIntContext *)context;

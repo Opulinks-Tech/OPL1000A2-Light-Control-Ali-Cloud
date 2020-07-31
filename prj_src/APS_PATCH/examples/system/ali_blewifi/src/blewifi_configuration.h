@@ -162,6 +162,9 @@ FIM version
 #define ALI_DEVICE_NAME             "xxxxxxxxxxx"
 #define ALI_DEVICE_SECRET           "xxxxxxxxxxx"
 
+#define MW_FIM_VER17_PROJECT        0x03    // 0x00 ~ 0xFF
+#define ALI_REGION_ID              (0)
+
 
 #ifdef ALI_BLE_WIFI_PROVISION
 
@@ -199,7 +202,7 @@ FIM version
 #endif
 
 #define MW_FIM_VER14_PROJECT        0x02    // 0x00 ~ 0xFF
-#define MW_FIM_VER15_PROJECT        0x01    // 0x00 ~ 0xFF
+#define MW_FIM_VER15_PROJECT        0x03    // 0x00 ~ 0xFF
 
 
 #define BLEWIFI_CTRL_BOOT_CNT_FOR_ALI_RESET     3

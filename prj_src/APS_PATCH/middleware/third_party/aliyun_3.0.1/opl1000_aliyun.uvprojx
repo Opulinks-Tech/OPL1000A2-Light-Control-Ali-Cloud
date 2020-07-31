@@ -617,6 +617,11 @@
               <FileType>1</FileType>
               <FilePath>.\src\infra\redirect_region.c</FilePath>
             </File>
+            <File>
+              <FileName>guider.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\infra\guider.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1556,6 +1561,11 @@
               <FileName>redirect_region.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\infra\redirect_region.c</FilePath>
+            </File>
+            <File>
+              <FileName>guider.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\infra\guider.c</FilePath>
             </File>
           </Files>
         </Group>

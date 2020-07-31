@@ -1,12 +1,14 @@
 #include "infra_config.h"
 
-#ifdef INFRA_LOG_NETWORK_PAYLOAD
+//#ifdef INFRA_LOG_NETWORK_PAYLOAD
 #include <string.h>
 #include <stdarg.h>
 #include "infra_log.h"
 #if defined(INFRA_CJSON)
     #include "infra_cjson.h"
 #endif
+
+#include "infra_config.h"
 
 #define JSON_NEWLINE            "\r\n"
 #define JSON_INDENT             "    "
@@ -20,10 +22,12 @@
         } \
     } while(0)
 
+
 /* 31, red. 32, green. 33, yellow. 34, blue. 35, magenta. 36, cyan. 37, white. */
-static char *_color[] = {
+char *lvl_color[] = {
     "[0m", "[1;31m", "[1;31m", "[1;35m", "[1;33m", "[1;36m", "[1;37m"
 };
+
 
 SHM_DATA int iotx_facility_json_print(const char *str, int level, ...)
 {
@@ -33,29 +37,30 @@ SHM_DATA int iotx_facility_json_print(const char *str, int level, ...)
     int             escaped = 0;
     int             indent  = 0;
     int             i = 0, j = 0;
-#if defined(INFRA_CJSON)
+    int             curr_level = LOG_DEBUG_LEVEL;//LITE_get_loglevel();
     int             res = -1;
     lite_cjson_t    lite;
-#endif
     va_list         ap;
     int             mark = ' ';
 
     newstr[0] = 0x00;
     newstr[1] = 0x00;
 
+    if (curr_level < level) {
+        return 1;
+    }
+
     if (str == NULL || strlen(str) == 0) {
         return -1;
     }
 
-#if defined(INFRA_CJSON)
     res = lite_cjson_parse(str, strlen(str), &lite);
     if (res != SUCCESS_RETURN || !lite_cjson_is_object(&lite)) {
         return -2;
     }
-#endif
 
     length = strlen(str);
-    HAL_Printf("%s%s", "\033", _color[level]);
+    HAL_Printf("%s%s", "\033", lvl_color[level]);
     va_start(ap, level);
     mark = va_arg(ap, int);
     JSON_PRINT_NEWLINE;
@@ -155,5 +160,5 @@ SHM_DATA int iotx_facility_json_print(const char *str, int level, ...)
     return 0;
 }
 
-#endif  /* #ifdef INFRA_LOG_NETWORK_PAYLOAD */
+//#endif  /* #ifdef INFRA_LOG_NETWORK_PAYLOAD */
 

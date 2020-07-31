@@ -26,12 +26,14 @@ int awss_report_cloud()
     HAL_MutexLock(awss_bind_mutex);
     awss_cmp_online_init();
     HAL_MutexUnlock(awss_bind_mutex);
-    
+
+#if 0    
 #ifdef DEVICE_MODEL_ENABLED
-    if(awss_check_reset()) {
+    if(awss_check_reset(NULL)) {
         return awss_report_reset_to_cloud();
     }
 #endif
+#endif    
     awss_start_bind();
     return 0;
 }

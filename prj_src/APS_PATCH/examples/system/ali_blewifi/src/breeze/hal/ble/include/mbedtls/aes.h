@@ -286,5 +286,4 @@ extern "C"
 }
 #endif
 
-
 #endif /* aes.h */

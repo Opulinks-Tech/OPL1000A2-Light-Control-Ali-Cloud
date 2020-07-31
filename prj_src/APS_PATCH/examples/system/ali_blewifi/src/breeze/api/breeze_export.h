@@ -12,8 +12,8 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
-	
-#include "infra_defs.h"	
+#include "bzopt.h"
+#include "infra_defs.h"
 
 #define BD_ADDR_LEN      (6)      /**< Length of Bluetooth Device Address. */
 #define STR_MODEL_LEN    (20 + 1) /**< Reserved. */
@@ -30,17 +30,26 @@ extern "C"
 typedef enum {
     CONNECTED,     // connect with phone success
     DISCONNECTED,  // lost connection with phone
-    AUTHENTICATED, // success authentication
-    TX_DONE,       // send data complete
+    AUTHENTICATED,                            // success authentication, security key auth
+    TX_DONE,                                  // send user payload data complete
+    EVT_USER_BIND,                            // user binded, has AuthCode
+    EVT_USER_UNBIND,                          // user unbind, no AuthCode
+    EVT_USER_SIGNED,                          // user AuthCode sign pass
     NONE
 } breeze_event_t;
 
 typedef struct {
-    char    ssid[32 + 1];
-    char    pw[64 + 1];
+    uint8_t protocol_ver;                     // ble awss protocol version
+    char    ssid[32 + 1];                     // ble awss ap ssid
+    char    pw[64 * 2 + 1];                   // ap password
     uint8_t bssid[6];
     uint8_t apptoken_len;
     uint8_t apptoken[MAX_TOKEN_PARAM_LEN];
+    uint8_t token_type;
+    uint8_t region_type;
+    int     region_id;
+    char    region_mqtturl[128];
+    uint8_t rand[3];
 } breeze_apinfo_t;
 
 #if 1
@@ -50,6 +59,7 @@ typedef struct {
     char product_secret[IOTX_PRODUCT_SECRET_LEN + 1];
     char device_name[IOTX_DEVICE_NAME_LEN + 1];
     char device_secret[IOTX_DEVICE_SECRET_LEN + 1];
+    uint8_t *dev_adv_mac;               // mac address filled in breeze adv data(maybe bt addr or wifi mac)
 } breeze_dev_info_t;
 #else
 typedef struct {
@@ -58,14 +68,14 @@ typedef struct {
     char *product_secret;
     char *device_name;
     char *device_secret;
+    uint8_t *dev_adv_mac;               // mac address filled in breeze adv data(maybe bt addr or wifi mac)
 } breeze_dev_info_t;
 
 #endif
-
 typedef enum {
     OTA_CMD = 1,
     OTA_EVT,
-} ota_info_type_t;
+} breeze_ota_info_type_t;
 
 typedef enum {
    ALI_OTA_ON_AUTH_EVT,
@@ -77,7 +87,7 @@ typedef enum {
 typedef struct {
     uint8_t  cmd;
     uint8_t  frame;
-    uint8_t  data[256];
+    uint8_t  data[BZ_MAX_PAYLOAD_SIZE];
     uint16_t len;
 } breeze_ota_cmd_t;
 
@@ -87,7 +97,7 @@ typedef struct {
 } breeze_ota_evt_t;
 
 typedef struct {
-    ota_info_type_t type;
+    breeze_ota_info_type_t type;
     union {
         breeze_ota_cmd_t m_cmd;
         breeze_ota_evt_t m_evt;
@@ -127,6 +137,14 @@ typedef void (*set_dev_status_cb)(uint8_t *buffer, uint32_t length);
  */
 typedef void (*get_dev_status_cb)(uint8_t *buffer, uint32_t length);
 
+/**
+ * @brief Callback when there is AWSS info to get.
+ *
+ * @param[out] buffer @n The data struct of AP info.
+ * @return None.
+ * @see None.
+ * @note This API should be implemented by user and will be called by SDK.
+ */
 typedef void (*apinfo_ready_cb)(breeze_apinfo_t *ap);
 
 /**
@@ -150,16 +168,17 @@ typedef void (*ota_dev_cb)(breeze_otainfo_t *otainfo);
 struct device_config
 {
     uint8_t         bd_addr[BD_ADDR_LEN];
+    uint8_t         bd_adv_addr[BD_ADDR_LEN];        // mac address filled in breeze adv data(maybe bt addr or wifi mac)
     char            model[STR_MODEL_LEN];
     uint32_t        product_id;
     char            product_key[STR_PROD_KEY_LEN];
     uint8_t         product_key_len;
-    char            device_key[STR_DEV_KEY_LEN];
-    uint8_t         device_key_len;
-    char            secret[STR_SEC_LEN];
-    uint8_t         secret_len;
     char            product_secret[STR_PROD_SEC_LEN];
     uint8_t         product_secret_len;
+    char            device_name[STR_DEV_KEY_LEN];
+    uint8_t         device_key_len;
+    char            device_secret[STR_SEC_LEN];
+    uint8_t         device_secret_len;
     dev_status_changed_cb status_changed_cb;
     set_dev_status_cb     set_cb;
     get_dev_status_cb     get_cb;
@@ -193,7 +212,12 @@ int breeze_end(void);
  * @return None.
  * @see None.
  */
-void breeze_awss_init(apinfo_ready_cb cb, breeze_dev_info_t *info);
+void breeze_awss_init(breeze_dev_info_t *info, 
+                      dev_status_changed_cb status_change_cb,
+                      set_dev_status_cb set_cb,
+                      get_dev_status_cb get_cb,
+                      apinfo_ready_cb apinfo_rx_cb,
+                      ota_dev_cb ota_cb);
 
 /**
  * @brief Start breeze awss process.
@@ -206,6 +230,16 @@ void breeze_awss_init(apinfo_ready_cb cb, breeze_dev_info_t *info);
  */
 void breeze_awss_start(void);
 
+/**
+ * @brief Stop breeze, include ble-awss, ble-breeze and ble-stack.
+ *
+ * @param None.
+ * @return None.
+ * @see None.
+ *
+ * @note When this API is called, do not call breeze anymore.
+ */
+void breeze_awss_stop(void);
 /**
  * @brief Post device status.
  *
@@ -244,10 +278,22 @@ uint32_t breeze_post_fast(uint8_t *buffer, uint32_t length);
 uint32_t breeze_post_ext(uint8_t cmd, uint8_t *buffer, uint32_t length);
 
 /**
+ * @brief Post device status with cmd.
+ *
+ * @param[in] cmd @n cmda to post.0:default, other:for internal use
+ * @param[in] buffer @n Data to post.
+ * @param[in] model @n Length of the data.
+ * @return result 0: success; others:err code.
+ * @see None.
+ * @note This API uses ble notification way to send the data.
+ */
+uint32_t breeze_post_ext_fast(uint8_t cmd, uint8_t *buffer, uint32_t length);
+
+/**
  * @brief Append user specific data to the tail of the breeze adv data.
  *
- * @param[in] Data to append.
- * @param[in] Data length.
+ * @param[in] data @n Data to append.
+ * @param[in] len @n Data length.
  * @return None.
  * @see None.
  * @note User can call this API if additional adv data is needed.
@@ -266,6 +312,46 @@ void breeze_append_adv_data(uint8_t *data, uint32_t len);
  *       content from time to time.
  */
 void breeze_restart_advertising(void);
+
+/**
+ * @brief Start BLE advertisement. This API will start the adv.
+ *
+ * @param[in] sub_type @n device advertising type.
+ * @param[in] sec_type @n security type, per-product or per-device.
+ * @param[in] bind_state @n device bind state.
+ * @return result 0-success, <0-fail.
+ * @see None.
+ * @note User can call this API if he/she wants to start the adv
+ */
+int breeze_start_advertising(uint8_t sub_type, uint8_t sec_type, uint8_t bind_state);
+
+/**
+ * @brief Stop BLE advertisement. This API will stop the adv.
+ *
+ * @param None.
+ * @return result 0-success, <0-fail.
+ * @see None.
+ * @note User can call this API if he/she wants to stop the adv
+ */
+int breeze_stop_advertising(void);
+
+/**
+ * @brief get breeze device's bind state.
+ *
+ * @param None.
+ * @return bind_state 0-not bind, 1-binded.
+ * @see None.
+ */
+uint8_t breeze_get_bind_state(void);
+
+/**
+ * @brief clear breeze device's bind state.
+ *
+ * @param None.
+ * @return result 0-success, <0-fail.
+ * @see None.
+ */
+int breeze_clear_bind_info(void);
 
 #if defined(__cplusplus) /* If this is a C++ compiler, use C linkage */
 }

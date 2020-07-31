@@ -42,7 +42,7 @@ const T_MwFim_GP15_Light_Status g_tMwFimDefaultGp15LightStatus = {1, 0};
 // the address buffer of light status
 uint32_t g_ulaMwFimAddrBufferGP15LightStatus[MW_FIM_GP15_LIGHT_STATUS_NUM];
 
-const T_MwFim_GP15_Ctb_Status g_tMwFimDefaultGp15CtbStatus = {100};
+const T_MwFim_GP15_Ctb_Status g_tMwFimDefaultGp15CtbStatus = {100, 7000};
 
 // the address buffer of ctb status
 uint32_t g_ulaMwFimAddrBufferGP15CtbStatus[MW_FIM_GP15_CTB_STATUS_NUM];

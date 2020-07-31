@@ -61,6 +61,7 @@ Head Block of The File
 #include "mw_fim_default_group13_project.h"
 #include "mw_fim_default_group14_project.h"
 #include "mw_fim_default_group15_project.h"
+#include "mw_fim_default_group17_project.h"
 #include "ipc_patch.h"
 #include "sys_cfg.h"
 
@@ -198,9 +199,25 @@ void __Patch_EntryPoint(void)
     // update the switch AT UART / dbg UART function
     at_cmd_switch_uart1_dbguart = Main_AtUartDbgUartSwitch;
     
-    // modify the heap size, from 0x438F00 to 0x44F000
-    g_ucaMemPartAddr = (uint8_t*) 0x438F00;
-    g_ulMemPartTotalSize = 0x16100;
+#if 1
+    // modify the heap size, from g_ucaMemPartAddr to 0x44F000
+    #ifdef ADA_REMOTE_CTRL
+    uint32_t u32Addr = 0x43A200;
+    #else
+    uint32_t u32Addr = 0x439500;
+    #endif
+
+    g_ucaMemPartAddr = (uint8_t*) u32Addr;
+    g_ulMemPartTotalSize = 0x44F000 - u32Addr;
+
+    Sys_SetUnsuedSramEndBound(u32Addr);
+#else
+    // modify the heap size, from 0x439300 to 0x44F000
+    g_ucaMemPartAddr = (uint8_t*) 0x439300;
+    g_ulMemPartTotalSize = 0x15D00;
+
+    Sys_SetUnsuedSramEndBound(0x439300);
+#endif
     
     g_xaMemoryTable[0].ulBlockSize = 32;
     g_xaMemoryTable[0].ulBlockNum  = 80;
@@ -215,9 +232,6 @@ void __Patch_EntryPoint(void)
     g_xaMemoryTable[6].ulBlockNum = 0;
     g_xaMemoryTable[7].ulBlockNum = 0;
 //    g_xaMemoryTable[8].ulBlockNum = 0; 
-    
-    
-    Sys_SetUnsuedSramEndBound(0x438F00);
 	    
     // application init
     Sys_AppInit = Main_AppInit_patch;
@@ -311,6 +325,9 @@ static void Main_FlashLayoutUpdate(void)
     MwFim_GroupInfoUpdate(1, 6, (T_MwFimFileInfo *)g_taMwFimGroupTable16_project);
     MwFim_GroupVersionUpdate(1, 6, MW_FIM_VER16_PROJECT);
     #endif
+
+    MwFim_GroupInfoUpdate(1, 7, (T_MwFimFileInfo *)g_taMwFimGroupTable17_project);
+    MwFim_GroupVersionUpdate(1, 7, MW_FIM_VER17_PROJECT);
 }
 
 /*************************************************************************
@@ -424,7 +441,7 @@ static void Main_AppInit_patch(void)
 
     g_bTracerLogMode = 0;
     g_dwTracerQueueNum = 16;
-    
+
     sys_cfg_clk_set(SYS_CFG_CLK_87_MHZ);
 
 #ifdef __BLEWIFI_TRANSPARENT__

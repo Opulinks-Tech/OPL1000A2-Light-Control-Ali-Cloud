@@ -112,7 +112,7 @@ typedef struct
 #define BLEWIFI_WIFI_DISCONNECTED_FAIL  1
 
 
-void BleWifi_Wifi_DoScan(uint8_t *data, int len);
+void BleWifi_Wifi_DoScan(uint8_t *data, int len, uint8_t u8BySsid);
 void BleWifi_Wifi_DoConnect(uint8_t *data, int len);
 void BleWifi_Wifi_DoDisconnect(void);
 void BleWifi_Wifi_ReadDeviceInfo(void);

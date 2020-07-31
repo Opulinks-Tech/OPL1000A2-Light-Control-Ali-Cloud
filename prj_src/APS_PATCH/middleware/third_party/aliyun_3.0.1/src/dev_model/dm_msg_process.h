@@ -62,6 +62,8 @@ extern const char DM_URI_THING_MODEL_UP_RAW_REPLY[]          DM_READ_ONLY;
 #endif
 
 extern const char DM_URI_DEV_CORE_SERVICE_DEV[]              DM_READ_ONLY;
+extern const char DM_URI_THING_EVENT_NOTIFY[]                DM_READ_ONLY;
+extern const char DM_URI_THING_EVENT_NOTIFY_REPLY[]          DM_READ_ONLY;
 
 #ifdef DEVICE_MODEL_GATEWAY
     /* From Cloud To Local Request And Response*/
@@ -118,6 +120,7 @@ int dm_msg_proc_thing_service_request(_IN_ dm_msg_source_t *source);
 int dm_msg_proc_thing_event_post_reply(_IN_ dm_msg_source_t *source);
 int dm_msg_proc_thing_deviceinfo_update_reply(_IN_ dm_msg_source_t *source);
 int dm_msg_proc_thing_deviceinfo_delete_reply(_IN_ dm_msg_source_t *source);
+int dm_msg_proc_thing_event_notify_reply(_IN_ dm_msg_source_t *source);
 int dm_msg_proc_thing_dynamictsl_get_reply(_IN_ dm_msg_source_t *source);
 int dm_msg_proc_rrpc_request(_IN_ dm_msg_source_t *source);
 int dm_disp_ntp_response(_IN_ dm_msg_source_t *source);

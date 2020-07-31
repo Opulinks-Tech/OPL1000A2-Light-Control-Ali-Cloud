@@ -32,6 +32,9 @@
 #include "iot_rb_data.h"
 #include "light_control.h"
 
+#define SET_BIT(x,n) ((x)|=(1<<(n)))
+#define CHK_BIT(x,n) (((x)&(1<<(n)))!=0)
+
 // 15: {"LocalTimer":[
 // 99: {"LightSwitch":0,"Timer":"53 14 * * 1,2,3,4,5,6,7","Enable":1,"IsValid":1,"TimezoneOffset":-43200},
 //  3: ]}\0
@@ -77,13 +80,17 @@ typedef struct {
 
 #define USER_EXAMPLE_YIELD_TIMEOUT_MS (200) //Kevin add it
 
+#ifdef ADA_REMOTE_CTRL
+//#define EXAMPLE_TRACE(...)
+#define EXAMPLE_TRACE(...)      {HAL_Printf(__VA_ARGS__); HAL_Printf("\n");}
+#else
 #define EXAMPLE_TRACE(...)                               \
 do {                                                     \
     HAL_Printf("\033[1;32;40m%s.%d: ", __func__, __LINE__);  \
     HAL_Printf(__VA_ARGS__);                                 \
     HAL_Printf("\033[0m\r\n");                                   \
 } while (0)
-
+#endif
 
 
 int ali_linkkit_init(user_example_ctx_t *user_example_ctx);
@@ -97,5 +104,7 @@ int iot_load_cfg(uint8_t u8Mode);
 int iot_update_cfg(void);
 int iot_apply_cfg(uint8_t u8Mode);
 void iot_save_all_cfg(void);
+
+void iot_update_light_property(uint16_t u16Flag, uint32_t u32MsgId);
 
 #endif

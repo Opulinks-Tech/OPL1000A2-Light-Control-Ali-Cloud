@@ -35,7 +35,7 @@ extern "C" {
  *************************************************************************
  */
 
-
+#define IPC_WIFI_RX_SHRINK
 /*
  *************************************************************************
  *                          Typedefs and Structures
@@ -50,6 +50,11 @@ extern "C" {
  *************************************************************************
  */
 extern uint32_t g_u32IpcSleepIoCfgAddr;
+
+#ifdef IPC_WIFI_RX_SHRINK
+extern uint32_t g_u32IpcMsqRxDataLen;
+extern uint32_t g_u32IpcApsRxDataLen;
+#endif
 
 /*
  *************************************************************************

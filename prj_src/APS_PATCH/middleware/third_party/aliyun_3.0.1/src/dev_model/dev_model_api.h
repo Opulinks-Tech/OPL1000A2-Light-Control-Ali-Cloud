@@ -65,6 +65,9 @@ typedef enum {
     /* only for master device, request fota image from cloud */
     ITM_MSG_REQUEST_FOTA_IMAGE,
 
+    /* reply event notify to cloud */
+    ITM_MSG_EVENT_NOTIFY_REPLY,
+
     /* report subdev's firmware version */
     ITM_MSG_REPORT_SUBDEV_FIRMWARE_VERSION,
 

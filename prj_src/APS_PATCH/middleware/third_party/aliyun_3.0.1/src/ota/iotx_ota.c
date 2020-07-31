@@ -12,6 +12,7 @@
     #error "NOT support yet!"
 #endif
 
+#include "infra_config.h"
 
 typedef struct  {
     const char *product_key;    /* point to product key */
@@ -678,7 +679,7 @@ int IOT_OTA_IsFetchFinish(void *handle)
 }
 
 
-int IOT_OTA_FetchYield(void *handle, char *buf, uint32_t buf_len, uint32_t timeout_s)
+SHM_DATA int IOT_OTA_FetchYield(void *handle, char *buf, uint32_t buf_len, uint32_t timeout_s)
 {
     int ret;
     OTA_Struct_pt h_ota = (OTA_Struct_pt) handle;
@@ -772,7 +773,7 @@ int IOT_OTA_FetchYield(void *handle, char *buf, uint32_t buf_len, uint32_t timeo
 }
 
 
-int IOT_OTA_Ioctl(void *handle, IOT_OTA_CmdType_t type, void *buf, int buf_len)
+SHM_DATA int IOT_OTA_Ioctl(void *handle, IOT_OTA_CmdType_t type, void *buf, int buf_len)
 {
     OTA_Struct_pt h_ota = (OTA_Struct_pt) handle;
 

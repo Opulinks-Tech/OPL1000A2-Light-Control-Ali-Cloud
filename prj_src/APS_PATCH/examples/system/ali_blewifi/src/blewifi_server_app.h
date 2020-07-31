@@ -61,8 +61,8 @@ enum
     BLEWIFI_APP_MSG_SEND_TO_PEER_CFM,   // send data is confirmed
 #ifdef ALI_BLE_WIFI_PROVISION
     BLEWIFI_APP_MSG_ALI_SEND_RANDOM,   // ALI send first indicator
-    BLEWIFI_APP_MSG_ALI_SEND_DEVICE_NAME,   // ALI send first indicator
-    BLEWIFI_APP_MSG_ALI_SEND_DEVICE_SECRET,   // ALI send NOTIFY
+//    BLEWIFI_APP_MSG_ALI_SEND_DEVICE_NAME,   // ALI send first indicator
+//    BLEWIFI_APP_MSG_ALI_SEND_DEVICE_SECRET,   // ALI send NOTIFY
     BLEWIFI_APP_MSG_ALI_SEND_HICLIENT,   // ALI send HI-CLINT
 #endif
 

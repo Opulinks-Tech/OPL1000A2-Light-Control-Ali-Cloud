@@ -38,12 +38,15 @@
 #include "transport.h"
 
 UINT8 g_icnt=0;
+extern bool g_noti_flag;
+extern bool g_Indi_flag;
 #endif
 
 extern LE_ERR_STATE LeGapGetBdAddr(BD_ADDR addr);
 extern T_BleWifi_Ble_MsgHandlerTbl gBleGattMsgHandlerTbl[];
 
-static BLE_APP_DATA_T gTheBle;
+//static BLE_APP_DATA_T gTheBle;
+BLE_APP_DATA_T gTheBle;
 static BLE_ADV_TIME_T gTheBleAdvTime;
 
 static void BleWifi_Ble_SmMsgHandler_PairingActionInd(TASK task, MESSAGEID id, MESSAGE message);
@@ -100,8 +103,8 @@ static void BleWifi_Ble_AppMsgHandler_SendToPeer(TASK task, MESSAGEID id, MESSAG
 static void BleWifi_Ble_AppMsgHandler_SendToPeerCfm(TASK task, MESSAGEID id, MESSAGE message);
 #ifdef ALI_BLE_WIFI_PROVISION
 static void BleWifi_Ble_AppMsgHandler_AliSendRandom(TASK task, MESSAGEID id, MESSAGE message);
-static void BleWifi_Ble_AppMsgHandler_AliSendDeviceName(TASK task, MESSAGEID id, MESSAGE message);
-static void BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret(TASK task, MESSAGEID id, MESSAGE message);
+//static void BleWifi_Ble_AppMsgHandler_AliSendDeviceName(TASK task, MESSAGEID id, MESSAGE message);
+//static void BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret(TASK task, MESSAGEID id, MESSAGE message);
 static void BleWifi_Ble_AppMsgHandler_AliSendHiClient(TASK task, MESSAGEID id, MESSAGE message);
 #endif
 static T_BleWifi_Ble_MsgHandlerTbl gBleAppMsgHandlerTbl[] =
@@ -116,8 +119,8 @@ static T_BleWifi_Ble_MsgHandlerTbl gBleAppMsgHandlerTbl[] =
     {BLEWIFI_APP_MSG_SEND_TO_PEER_CFM,          BleWifi_Ble_AppMsgHandler_SendToPeerCfm},
 #ifdef ALI_BLE_WIFI_PROVISION		
     {BLEWIFI_APP_MSG_ALI_SEND_RANDOM,           BleWifi_Ble_AppMsgHandler_AliSendRandom},
-    {BLEWIFI_APP_MSG_ALI_SEND_DEVICE_NAME,      BleWifi_Ble_AppMsgHandler_AliSendDeviceName},
-    {BLEWIFI_APP_MSG_ALI_SEND_DEVICE_SECRET,    BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret},
+//    {BLEWIFI_APP_MSG_ALI_SEND_DEVICE_NAME,      BleWifi_Ble_AppMsgHandler_AliSendDeviceName},
+//    {BLEWIFI_APP_MSG_ALI_SEND_DEVICE_SECRET,    BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret},
     {BLEWIFI_APP_MSG_ALI_SEND_HICLIENT,         BleWifi_Ble_AppMsgHandler_AliSendHiClient},
  #endif
 
@@ -179,6 +182,7 @@ static void BleWifi_Ble_SmMsgHandler_PairingCompleteInd(TASK task, MESSAGEID id,
 
 static void BleWifi_Ble_SetAdvtisingPara(UINT8 type, UINT8 own_addr_type, LE_BT_ADDR_T *peer_addr, UINT8 filter, UINT16 interval_min, UINT16 interval_max)
 {
+    LE_ERR_STATE rc;
 	LE_GAP_ADVERTISING_PARAM_T para;
 
 	para.interval_min = interval_min;
@@ -200,7 +204,12 @@ static void BleWifi_Ble_SetAdvtisingPara(UINT8 type, UINT8 own_addr_type, LE_BT_
 	para.channel_map = 0x7;
     para.filter_policy = filter;
 
-	LeGapSetAdvParameter(&para);
+	rc = LeGapSetAdvParameter(&para);
+    
+    if (rc != SYS_ERR_SUCCESS)
+    {
+        BLEWIFI_INFO("APP-BLE Set Advtising Param fail rc = %x\r\n", rc);
+    }
 }
 #ifndef ALI_BLE_WIFI_PROVISION	
 static void BleWifi_UtilHexToStr(void *data, UINT16 len, UINT8 **p)
@@ -254,10 +263,13 @@ struct bt_data {
 };
 
 #define MAX_ADV_DATA_LEN 16
+#define BT_LE_AD_LIMITED                0x01 /* Limited Discoverable */
+#define BT_LE_AD_GENERAL                0x02 /* General Discoverable */
+#define BT_LE_AD_NO_BREDR               0x04 /* BR/EDR not supported */
 
 
 extern core_t g_core;
-extern void create_bz_adv_data(uint32_t model_id, uint8_t *mac_bin);
+extern void core_create_bz_adv_data(uint8_t sub_type, uint8_t sec_type, uint8_t bind_state);
 
 SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
 {
@@ -271,16 +283,15 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
 	
 
     if (adv->flag & AIS_AD_GENERAL) {
-        flag |= GAP_ADTYPE_FLAGS_GENERAL;
+        flag |= BT_LE_AD_GENERAL;
     }
     if (adv->flag & AIS_AD_NO_BREDR) {
-        flag |= GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;
+        flag |= BT_LE_AD_NO_BREDR;
     }
- /*   if (!flag) {
-        BZ_LOG_E("Invalid adv flag");
+    if (!flag) {
+        printf("Invalid adv flag.\r\n");
         return AIS_ERR_INVALID_ADV_DATA;
     }
-*/
 	
 
     ad[0].type     = BT_DATA_FLAGS;
@@ -303,10 +314,10 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
     UINT8 bleAdvertData[] ={
     0x02,
     BT_DATA_FLAGS,
-    0x06 ,
+    flag,
     0x03,
     BT_DATA_UUID16_ALL,
-    0xb3, 0xfe,
+    srv[0], srv[1],
     adv->vdata.len+1,
     0xFF,
     };
@@ -314,14 +325,40 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
     uint8_t ubLen = sizeof(bleAdvertData);
     gTheBle.adv_data.len = ubLen;
     MemCopy(gTheBle.adv_data.buf, bleAdvertData, ubLen);
-    MemCopy(gTheBle.adv_data.buf+ubLen, adv->vdata.data,adv->vdata.len);
+    MemCopy(gTheBle.adv_data.buf+ubLen, adv->vdata.data, adv->vdata.len);
     gTheBle.adv_data.len+=adv->vdata.len;
+
+#if 0    
+    printf("ALi ad[0] type=%02x\n", ad[0].type);
+    printf("ALi ad[0].data\n");
+    for(int i=0;i<ad[0].data_len;i++)
+    {
+        printf("%02x ", ad[0].data[i]);
+    }
+    printf("\n");
     
-        
+    printf("ALi ad[1] type=%02x\n", ad[1].type);
+    printf("ALi ad[1].data\n");
+    for(int i=0;i<ad[1].data_len;i++)
+    {
+        printf("%02x ", ad[1].data[i]);
+    }
+    printf("\n");
+    
+    
+    printf("ad[2] type=%02x\n", ad[2].type);
+    printf("ad[2].data\n");
+    for(int i=0;i<ad[2].data_len;i++)
+    {
+        printf("%02x ", ad[2].data[i]);
+    }
+    printf("\n");
+#endif
+            
     printf("ALi BLE ADV data:\n");
     for(int i=0;i<gTheBle.adv_data.len;i++)
     {
-        printf("%02x", gTheBle.adv_data.buf[i]);
+        printf("%02x ", gTheBle.adv_data.buf[i]);
     }
     printf("\n");
     
@@ -333,17 +370,26 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
             sd[0].type = BT_DATA_NAME_COMPLETE;
             break;
         default:
-//           BZ_LOG_E("Invalid adv name type.");
-            return 114;
+           printf("\nInvalid adv name type.\n\n");
+            return AIS_ERR_INVALID_ADV_DATA;
     }
     
-/*   if (adv->name.name == NULL) {
-        BZ_LOG_E("Invalid adv name.");
+   if (adv->name.name == NULL) {
+        printf("Invalid adv name.");
         return AIS_ERR_INVALID_ADV_DATA;
     }
-*/
+
     sd[0].data     = (const uint8_t*)adv->name.name;
     sd[0].data_len = strlen(adv->name.name);
+    
+    
+//    printf("sd[0] type=%02x\n", sd[0].type);
+//    printf("sd[0].data\n");
+//    for(int i=0;i<sd[0].data_len;i++)
+//    {
+//        printf("%02x ", sd[0].data[i]);
+//    }
+//    printf("\n");
 
     gTheBle.scn_data.len = sd[0].data_len + 2;
     gTheBle.scn_data.buf[0] = gTheBle.scn_data.len - 1;
@@ -354,7 +400,7 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
     printf("ALi BLE SCN data:\n");
     for(int i=0;i<gTheBle.scn_data.len;i++)
     {
-        printf("%02x", gTheBle.scn_data.buf[i]);
+        printf("%02x ", gTheBle.scn_data.buf[i]);
     }
     printf("\n");
 	
@@ -375,67 +421,76 @@ SHM_DATA int ble_advertising_start(ais_adv_init_t *adv)
 
 static void BleWifi_Ble_SetAdvData(void)
 {
-    uint8_t ubLen;
-    UINT8 bleAdvertData[] =
-    {
-        0x02,
-        GAP_ADTYPE_FLAGS,
-        GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-        // connection interval range
-        0x05,
-        GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
-        UINT16_LO(DEFAULT_DESIRED_MIN_CONN_INTERVAL),
-        UINT16_HI(DEFAULT_DESIRED_MIN_CONN_INTERVAL),
-        UINT16_LO(DEFAULT_DESIRED_MAX_CONN_INTERVAL),
-        UINT16_HI(DEFAULT_DESIRED_MAX_CONN_INTERVAL),
-        0x02,
-        GAP_ADTYPE_POWER_LEVEL,
-        0,
-        0x11,
-        GAP_ADTYPE_128BIT_COMPLETE,
-        0xFB, 0x34, 0x9B, 0x5F, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xAA, 0xAA, 0x00, 0x00
-    };
+//    uint8_t ubLen;
+//    UINT8 bleAdvertData[] =
+//    {
+//        0x02,
+//        GAP_ADTYPE_FLAGS,
+//        GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+//        // connection interval range
+//        0x05,
+//        GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
+//        UINT16_LO(DEFAULT_DESIRED_MIN_CONN_INTERVAL),
+//        UINT16_HI(DEFAULT_DESIRED_MIN_CONN_INTERVAL),
+//        UINT16_LO(DEFAULT_DESIRED_MAX_CONN_INTERVAL),
+//        UINT16_HI(DEFAULT_DESIRED_MAX_CONN_INTERVAL),
+//        0x02,
+//        GAP_ADTYPE_POWER_LEVEL,
+//        0,
+//        0x11,
+//        GAP_ADTYPE_128BIT_COMPLETE,
+//        0xFB, 0x34, 0x9B, 0x5F, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xAA, 0xAA, 0x00, 0x00
+//    };
 
     // error handle
-    ubLen = sizeof(bleAdvertData);
-    if (ubLen > BLE_ADV_SCAN_BUF_SIZE)
-        ubLen = BLE_ADV_SCAN_BUF_SIZE;
-    gTheBle.adv_data.len = ubLen;
-    MemCopy(gTheBle.adv_data.buf, bleAdvertData, gTheBle.adv_data.len);
+//    ubLen = sizeof(bleAdvertData);
+//    if (ubLen > BLE_ADV_SCAN_BUF_SIZE)
+//        ubLen = BLE_ADV_SCAN_BUF_SIZE;
+//    gTheBle.adv_data.len = ubLen;
+//    MemCopy(gTheBle.adv_data.buf, bleAdvertData, gTheBle.adv_data.len);
 #ifdef ALI_BLE_WIFI_PROVISION
     ais_adv_init_t adv_data = {
         .flag = (ais_adv_flag_t)(AIS_AD_GENERAL | AIS_AD_NO_BREDR),
-        .name = { .ntype = AIS_ADV_NAME_FULL, .name = "AZ" },
+        .name = { .ntype = AIS_ADV_NAME_FULL, .name = "FY" },
     };
-
+    
+    unsigned char mac_be[6]={0x78,0x78,0x78,0x78,0x78,0x78};
+	LeGapGetBdAddr(mac_be);
+    init_ali.adv_mac = mac_be;
 	/* device key may be NULL */
     if (dinfo.device_name != NULL) {
-    init_ali.device_key.length = strlen(dinfo.device_name);
-    init_ali.device_key.p_data = (uint8_t*)dinfo.device_name;
-            g_auth.key_len = strlen(dinfo.device_name);
-    if(g_auth.key_len > 0){
-        memcpy(g_auth.key, dinfo.device_name, g_auth.key_len);
-    }
-//  printf("Device key=%s\r\n", g_auth.key);
-//  printf("Device key=%s\r\n", init_ali.device_key.p_data );
-    } else {
-        init_ali.device_key.length = 0;
+        
+        init_ali.device_name.length = strlen(dinfo.device_name);
+        init_ali.device_name.p_data = (uint8_t*)dinfo.device_name;
+        g_auth.device_name_len = strlen(dinfo.device_name);
+      
+        if(g_auth.device_name_len > 0)
+        {
+            g_auth.p_device_name =Malloc(g_auth.device_name_len);
+            if(g_auth.p_device_name!=NULL)
+                memcpy(g_auth.p_device_name, dinfo.device_name, g_auth.device_name_len);
+            printf("Device key=%s\r\n", g_auth.p_device_name);
+        }
+    } 
+    else 
+    {
+        init_ali.device_name.length = 0;
     }
 	
     /* device secret may be NULL */
     if (dinfo.device_secret != NULL) {
-    init_ali.secret.length = strlen(dinfo.device_secret);
-    init_ali.secret.p_data = (uint8_t *)dinfo.device_secret;
+    init_ali.device_secret.length = strlen(dinfo.device_secret);
+    init_ali.device_secret.p_data = (uint8_t *)dinfo.device_secret;
             
     } else {
-    init_ali.secret.length = 0;
+        init_ali.device_secret.length = 0;
     }
 
 
 //  g_dev_conf->product_secret_len = strlen(dinfo.product_secret);
 //  memcpy(g_dev_conf->product_secret, dinfo.product_secret, strlen(dinfo.product_secret));
     
-//  init_ali.event_handler = event_handler;
+//    init_ali.event_handler = event_handler;
     init_ali.model_id = dinfo.product_id;
 
     init_ali.product_key.p_data = (uint8_t *)dinfo.product_key;
@@ -449,39 +504,35 @@ static void BleWifi_Ble_SetAdvData(void)
 //    init_ali.user_adv_len          = user_adv.len;
 
 #ifdef ALI_OPL_DBG		 
-    printf("product secret len: %d\r\n", strlen(dinfo.product_secret));
+    printf("product secret len: %d\r\n", init_ali.product_secret.length);
     printf("product secret: %s\r\n", init_ali.product_secret.p_data);
     printf("product key len: %d\r\n", init_ali.product_key.length);
     printf("product key: %s\r\n", init_ali.product_key.p_data);
-    printf("device key len: %d\r\n", init_ali.device_key.length);
-    printf("device key: %s\r\n", init_ali.device_key.p_data);
-    printf("device secret len: %d\r\n", init_ali.secret.length);
-    printf("device secret: %s\r\n", init_ali.secret.p_data);
+    printf("device key len: %d\r\n", init_ali.device_name.length);
+    printf("device key: %s\r\n", init_ali.device_name.p_data);
+    printf("device secret len: %d\r\n", init_ali.device_secret.length);
+    printf("device secret: %s\r\n", init_ali.device_secret.p_data);
     printf("product id: %d\r\n", init_ali.model_id);
-#endif	
-	transport_init((ali_init_t const *)&init_ali);
-	uint32_t model_id=init_ali.model_id;
-	unsigned char mac_be[6]={0x78,0x78,0x78,0x78,0x78,0x78};
-	LeGapGetBdAddr(mac_be);
-	create_bz_adv_data(model_id, mac_be);
+    
+#endif
+    core_init((ali_init_t const *)&init_ali);
+//	transport_init((ali_init_t const *)&init_ali);
+//	uint32_t model_id=init_ali.model_id;
+//    memcpy(g_core.adv_mac, mac_be, 6);
+    uint8_t sub_type = BZ_SUB_TYPE_BLE_AWSS;
+    uint8_t sec_type = BZ_SEC_TYPE_PRODUCT;
+    uint8_t bind_state = BZ_BIND_STATE_UNBIND;
+	core_create_bz_adv_data(sub_type, sec_type, bind_state);
     adv_data.vdata.len = sizeof(adv_data.vdata.data);
-    if (get_bz_adv_data(adv_data.vdata.data, &(adv_data.vdata.len))) {
+    if (core_get_bz_adv_data(adv_data.vdata.data, &(adv_data.vdata.len))) {
 //      BREEZE_LOG_ERR("%s %d fail.\r\n", __func__, __LINE__);
 //      err = AIS_ERR_INVALID_ADV_DATA;
         goto exit;
    }
 
-/*
-	memcpy(gTheBle.adv_data.buf + gTheBle.adv_data.len,adv_data.vdata.data, adv_data.vdata.len);
-    gTheBle.adv_data.len+=adv_data.vdata.len;
-*/
 	
 	
 	ble_advertising_start(&adv_data);
-
-//	memcpy(adv_data.vdata.data + adv_data.vdata.len,
- //                      g_ali_init->user_adv_data, g_ali_init->user_adv_len);
- //               adv_data.vdata.len += g_ali_init->user_adv_len;
 #endif	
     LeGapSetAdvData(gTheBle.adv_data.len, gTheBle.adv_data.buf);
 #ifdef ALI_BLE_WIFI_PROVISION
@@ -703,9 +754,11 @@ static void BleWifi_Ble_CmMsgHandler_ConnectionCompleteInd(TASK task, MESSAGEID 
     #else
         BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_LINK_CONN, false);
     #endif
+        g_noti_flag = false;
+        g_Indi_flag = false;
         transport_reset();
-        ali_auth_init(&init_ali, tx_func_indicate);
-        extcmd_init(&init_ali, tx_func_indicate);
+//        ali_auth_init(&init_ali, tx_func_indicate);
+//        extcmd_init(&init_ali, tx_func_indicate);
         auth_connected();
         g_icnt=0;
 #endif
@@ -944,38 +997,46 @@ static void BleWifi_Ble_AppMsgHandler_AliSendRandom(TASK task, MESSAGEID id, MES
 {
     if (gTheBle.state == APP_STATE_CONNECTED)
     {
-        g_auth.state = AUTH_STATE_SVC_ENABLED;
-//        printf("send_random=%s\r\n", g_auth.ikm + g_auth.ikm_len);
-        reset_tx();
-        transport_tx(TX_INDICATION, BZ_CMD_AUTH_RAND, g_auth.ikm + g_auth.ikm_len, RANDOM_SEQ_LEN, LeGattCharValIndicate, gTheBle.conn_hdl, gTheBle.ali_indhdl);
-        auth_tx_done();
+        g_auth.state = BZ_AUTH_STATE_SVC_ENABLED;
+#if 1       
+        if((g_noti_flag == true) && (g_Indi_flag == true)){
+#endif            
+            reset_tx();
+            transport_tx(TX_INDICATION, BZ_CMD_AUTH_RAND, g_auth.ikm + g_auth.ikm_len, RANDOM_SEQ_LEN, LeGattCharValIndicate, gTheBle.conn_hdl, gTheBle.ali_indhdl);
+            auth_tx_done();
+#if 1             
+        }
+#endif        
     }
 }
-static void BleWifi_Ble_AppMsgHandler_AliSendDeviceName(TASK task, MESSAGEID id, MESSAGE message)
-{
-    if (gTheBle.state == APP_STATE_CONNECTED)
-    {
-        reset_tx();
-//        printf("send Device key: %s\r\n", g_auth.key);
-        transport_tx(TX_NOTIFICATION, BZ_CMD_AUTH_KEY, g_auth.key, strlen((const char*)g_auth.key), LeGattCharValNotify, gTheBle.conn_hdl, gTheBle.ali_notihdl);
-//        auth_tx_done();
-    }
-}
-static void BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret(TASK task, MESSAGEID id, MESSAGE message)
-{
-    if (gTheBle.state == APP_STATE_CONNECTED)
-    {
-        reset_tx();            	
-//        printf("send Device secret: %s\r\n", g_auth.ikm + g_auth.ikm_len);
-//        transport_tx(TX_INDICATION, BZ_CMD_AUTH_RAND,  g_auth.ikm + g_auth.ikm_len, RANDOM_SEQ_LEN, LeGattCharValIndicate, gTheBle.conn_hdl, gTheBle.ali_indhdl);
-//        auth_tx_done();
-    }
-}
+//static void BleWifi_Ble_AppMsgHandler_AliSendDeviceName(TASK task, MESSAGEID id, MESSAGE message)
+//{
+//    if (gTheBle.state == APP_STATE_CONNECTED)
+//    {
+//        reset_tx();
+////        printf("send Device key: %s\r\n", g_auth.key);
+//#if 0       
+//        transport_tx(TX_NOTIFICATION, BZ_CMD_AUTH_KEY, g_auth.p_device_name, strlen((const char*)g_auth.p_device_name), LeGattCharValNotify, gTheBle.conn_hdl, gTheBle.ali_notihdl);
+//#endif        
+////        auth_tx_done();
+//    }
+//}
+//static void BleWifi_Ble_AppMsgHandler_AliSendDeviceSecret(TASK task, MESSAGEID id, MESSAGE message)
+//{
+//    if (gTheBle.state == APP_STATE_CONNECTED)
+//    {
+//        reset_tx();            	
+////        printf("send Device secret: %s\r\n", g_auth.ikm + g_auth.ikm_len);
+////        transport_tx(TX_INDICATION, BZ_CMD_AUTH_RAND,  g_auth.ikm + g_auth.ikm_len, RANDOM_SEQ_LEN, LeGattCharValIndicate, gTheBle.conn_hdl, gTheBle.ali_indhdl);
+////        auth_tx_done();
+//    }
+//}
 static void BleWifi_Ble_AppMsgHandler_AliSendHiClient(TASK task, MESSAGEID id, MESSAGE message)
 {
     if (gTheBle.state == APP_STATE_CONNECTED)
     {
         BLEWIFI_MESSAGE_T *p_data = (BLEWIFI_MESSAGE_T *)message;
+//        printf("BleWifi_Ble_AppMsgHandler_AliSendHiClient\n");
         transport_rx(p_data->data, p_data->len);
     }
 }

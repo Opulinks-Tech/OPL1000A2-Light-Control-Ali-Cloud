@@ -13,7 +13,6 @@
 
 #include "ali_crypto.h"
 
-
 #define KEY_LEN 16
 
 void *ais_aes128_init(const uint8_t *key, const uint8_t *iv)

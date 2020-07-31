@@ -11,6 +11,7 @@
 #include "mqtt_wrapper.h"
 #include "infra_preauth.h"
 #include "infra_config.h"
+#include "infra_compat.h"
 
 #ifdef PLATFORM_HAS_DYNMEM
     #ifdef INFRA_MEM_STATS
@@ -648,14 +649,11 @@ SHM_DATA void *IOT_MQTT_Construct(iotx_mqtt_param_t *pInitParams)
     if (callback) {
         ((int (*)(void))callback)();
     }
-    
-    //add redirect region from Feiyan 1.1
-    ret = iotx_redirect_region_subscribe();
-    if (ret < 0) {
-        mqtt_err("failed to subscribe mqtt redirect resgion topic.");;
-    }
 
-    
+    ret = iotx_reconnect_region_subscribe();
+    if (ret < 0) {
+        mqtt_err("fail sub reconnect");
+    }
 
     return pclient;
 }

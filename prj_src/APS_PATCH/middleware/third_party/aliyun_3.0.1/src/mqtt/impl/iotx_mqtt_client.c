@@ -6,7 +6,11 @@
 #ifdef LOG_REPORT_TO_CLOUD
     #include "iotx_log_report.h"
 #endif
+
+#include "infra_config.h"
+
 static int _in_yield_cb;
+extern iotx_conn_info_pt iotx_conn_info_reload(void);
 
 #ifndef PLATFORM_HAS_DYNMEM
 iotx_mc_client_t g_iotx_mc_client[IOTX_MC_CLIENT_MAX_COUNT] = {0};
@@ -92,7 +96,7 @@ static int iotx_mc_set_connect_params(iotx_mc_client_t *pClient, MQTTPacket_conn
 }
 
 /* set state of MQTT client */
-static void iotx_mc_set_client_state(iotx_mc_client_t *pClient, iotx_mc_state_t newState)
+void iotx_mc_set_client_state(iotx_mc_client_t *pClient, iotx_mc_state_t newState)
 {
     HAL_MutexLock(pClient->lock_generic);
     pClient->client_state = newState;
@@ -759,7 +763,7 @@ static int iotx_mc_wait_CONNACK(iotx_mc_client_t *c)
 
     return rc;
 }
-
+#if 0
 static int _mqtt_connect(void *client)
 {
 #define RETRY_TIME_LIMIT    (8+1)
@@ -829,7 +833,7 @@ static int _mqtt_connect(void *client)
     mqtt_info("mqtt connect success!");
     return SUCCESS_RETURN;
 }
-
+#endif
 #if !WITH_MQTT_ONLY_QOS0
 static int iotx_mc_push_pubInfo_to(iotx_mc_client_t *c, int len, unsigned short msgId, iotx_mc_pub_info_t **node)
 {
@@ -1742,12 +1746,64 @@ static int iotx_mc_attempt_reconnect(iotx_mc_client_t *pClient)
 
     /* Ignoring return code. failures expected if network is disconnected */
     rc = wrapper_mqtt_connect(pClient);
+//    rc = iotx_mc_connect(pClient);
 
     if (SUCCESS_RETURN != rc && MQTT_CONNECT_BLOCK != rc) {
         mqtt_err("run iotx_mqtt_connect() error!");
     }
 
     return rc;
+}
+
+/* set MQTT connection parameter */
+extern void iotx_conn_info_release(void);
+static void _conn_info_dynamic_release()
+{
+//#if WITH_MQTT_DYN_CONNINFO && !(WITH_MQTT_MULTI_INSTANCE)
+    iotx_conn_info_release();
+//#endif
+}
+
+
+static int _conn_info_dynamic_reload(iotx_mc_client_t *pClient)
+{
+#if WITH_MQTT_DYN_CONNINFO && !(WITH_MQTT_MULTI_INSTANCE)
+    int rc;
+    iotx_conn_info_pt pconn;
+
+    if (NULL == pClient)
+    {
+        return NULL_VALUE_ERROR;
+    }
+
+    //destroy the mqtt connection first
+    pClient->ipstack.disconnect(&pClient->ipstack);
+
+    pconn = iotx_conn_info_reload();
+    if (pconn == NULL)
+    {
+        return NULL_VALUE_ERROR;
+    }
+
+
+    pClient->connect_data.clientID.cstring = pconn->client_id;
+    pClient->connect_data.username.cstring = pconn->username;
+    pClient->connect_data.password.cstring = pconn->password;
+
+    //destroy the last network
+    pClient->ipstack.disconnect(&pClient->ipstack);
+    memset(&pClient->ipstack, 0x0, sizeof(utils_network_t));
+
+    rc = iotx_net_init(&pClient->ipstack, pconn->host_name, pconn->port, pconn->pub_key);
+    if (SUCCESS_RETURN != rc)
+    {
+        mqtt_err("iotx_net_init err");
+        _conn_info_dynamic_release();
+        return -1;
+    }
+    
+#endif
+    return 0;
 }
 
 static int iotx_mc_handle_reconnect(iotx_mc_client_t *pClient)
@@ -1766,13 +1822,20 @@ static int iotx_mc_handle_reconnect(iotx_mc_client_t *pClient)
     }
 
     mqtt_info("start to reconnect");
-    /*
+    
         rc = _conn_info_dynamic_reload(pClient);
         if (SUCCESS_RETURN != rc) {
             mqtt_err("update connect info err");
             return -1;
         }
-    */
+    
+//    iotx_conn_info_pt pconn;
+//    pconn = iotx_conn_info_reload();
+//    if (pconn == NULL)
+//    {
+//        return NULL_VALUE_ERROR;
+//    }
+    
     rc = iotx_mc_attempt_reconnect(pClient);
     if (SUCCESS_RETURN == rc) {
         iotx_mc_set_client_state(pClient, IOTX_MC_STATE_CONNECTED);
@@ -2503,7 +2566,7 @@ static int MQTTUnsubscribe(iotx_mc_client_t *c, const char *topicFilter, unsigne
     return SUCCESS_RETURN;
 }
 
-int MQTTPublish(iotx_mc_client_t *c, const char *topicName, iotx_mqtt_topic_info_pt topic_msg)
+SHM_DATA int MQTTPublish(iotx_mc_client_t *c, const char *topicName, iotx_mqtt_topic_info_pt topic_msg)
 
 {
     iotx_time_t         timer;
@@ -2700,6 +2763,90 @@ void *wrapper_mqtt_init(iotx_mqtt_param_t *mqtt_params)
 int wrapper_mqtt_connect(void *client)
 {
     int rc = FAIL_RETURN;
+    int userKeepAliveInterval = 0;
+    //int retry_max = 1;
+    //int retry_cnt = 1;
+    //int retry_interval = 1000;
+    iotx_mc_client_t *pClient = (iotx_mc_client_t *)client;
+
+    if (NULL == pClient) {
+        return NULL_VALUE_ERROR;
+    }
+
+    /* Establish TCP or TLS connection */
+    rc = pClient->ipstack.connect(&pClient->ipstack);
+    if (SUCCESS_RETURN != rc) {
+        pClient->ipstack.disconnect(&pClient->ipstack);
+        mqtt_err("TCP or TLS Connection failed");
+
+        if (ERROR_CERTIFICATE_EXPIRED == rc) {
+//            dump_mqtt_status(STATE_MQTT_CERT_VERIFY_FAIL, "certificate is expired!");
+            printf("\ncertificate is expired!\n");
+            return ERROR_CERT_VERIFY_FAIL;
+        } else {
+//            dump_mqtt_status(STATE_MQTT_NETWORK_CONNECT_ERROR, "network connect error");
+            printf("\nnetwork connect error\n");
+            return MQTT_NETWORK_CONNECT_ERROR;
+        }
+    }
+
+    /* remove */
+    /*mqtt_debug("start MQTT connection with parameters: clientid=%s, username=%s, password=%s",
+              pClient->connect_data.clientID.cstring,
+              pClient->connect_data.username.cstring,
+              pClient->connect_data.password.cstring);*/
+    userKeepAliveInterval = pClient->connect_data.keepAliveInterval;
+    pClient->connect_data.keepAliveInterval = (userKeepAliveInterval * 2);
+
+    rc = MQTTConnect(pClient);
+    pClient->connect_data.keepAliveInterval = userKeepAliveInterval;
+
+    if (rc  != SUCCESS_RETURN) {
+        pClient->ipstack.disconnect(&pClient->ipstack);
+//        dump_mqtt_status(STATE_MQTT_CONNECT_PKT_SEND_FAIL, "send connect packet failed");
+        return  rc;
+    }
+
+    rc = iotx_mc_wait_CONNACK(pClient);
+    if (SUCCESS_RETURN != rc) {
+        (void)MQTTDisconnect(pClient);
+        pClient->ipstack.disconnect(&pClient->ipstack);
+        mqtt_err("wait connect ACK timeout, or receive a ACK indicating error!");
+        /* Notify errcode to upper layer */
+        if (rc == MQTT_CONANCK_UNACCEPTABLE_PROTOCOL_VERSION_ERROR) {
+//            dump_mqtt_status(STATE_MQTT_CONNACK_VERSION_UNACCEPT, "mqtt ack version unaccept");
+            printf("\nmqtt ack version unaccept\n");
+        } else if (rc == MQTT_CONNACK_IDENTIFIER_REJECTED_ERROR) {
+//            dump_mqtt_status(STATE_MQTT_CONNACK_IDENT_REJECT, "mqtt ack ident reject");
+            printf("\nmqtt ack ident reject\n");
+        } else if (rc == MQTT_CONNACK_SERVER_UNAVAILABLE_ERROR) {
+//            dump_mqtt_status(STATE_MQTT_CONNACK_SERVICE_NA, "mqtt ack service na");
+            printf("\nmqtt ack service na\n");
+        } else if (rc == MQTT_CONNACK_BAD_USERDATA_ERROR) {
+//            dump_mqtt_status(STATE_MQTT_CONNACK_BAD_USERDATA, "mqtt ack bad userdata");
+            printf("\nmqtt ack bad userdata\n");
+        } else if (rc == MQTT_CONNACK_NOT_AUTHORIZED_ERROR) {
+//            dump_mqtt_status(STATE_MQTT_CONNACK_NOT_AUTHORIZED, "mqtt ack not authorized");
+            printf("\nmqtt ack not authorized\n");
+        } else {
+//            dump_mqtt_status(STATE_MQTT_CONNECT_UNKNOWN_FAIL, "mqtt ack unknown fail");
+            printf("\nmqtt ack unknown fail\n");
+        }
+        return MQTT_CONNECT_ERROR;
+    }
+
+    pClient->keepalive_probes = 0;
+    iotx_mc_set_client_state(pClient, IOTX_MC_STATE_CONNECTED);
+
+    utils_time_countdown_ms(&pClient->next_ping_time, pClient->connect_data.keepAliveInterval * 1000);
+
+    mqtt_info("mqtt connect success!");
+    guider_set_direct_connect_count(0);
+
+    return SUCCESS_RETURN;
+    
+#if 0    
+    int rc = FAIL_RETURN;
     int retry_max = 1;
     int retry_cnt = 1;
     int retry_interval = 1000;
@@ -2741,6 +2888,8 @@ int wrapper_mqtt_connect(void *client)
     rc = _mqtt_connect(pClient);
 #endif
     return rc;
+
+#endif    
 }
 
 SHM_DATA int wrapper_mqtt_release(void **c)

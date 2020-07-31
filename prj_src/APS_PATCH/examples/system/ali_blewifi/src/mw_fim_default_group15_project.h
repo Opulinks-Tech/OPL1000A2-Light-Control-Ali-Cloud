@@ -72,6 +72,7 @@ typedef struct
 typedef struct
 {
     uint8_t u8Brightness;
+    uint32_t u32ColorTemp;
 } T_MwFim_GP15_Ctb_Status;
 
 #define MW_FIM_GP15_CTB_STATUS_SIZE         sizeof(T_MwFim_GP15_Ctb_Status)

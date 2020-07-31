@@ -80,7 +80,9 @@ typedef enum {
     IOTX_DM_EVENT_SUBDEV_UNREGISTER_REPLY,
     IOTX_DM_EVENT_TOPO_ADD_REPLY,
     IOTX_DM_EVENT_TOPO_DELETE_REPLY,
+    IOTX_DM_EVENT_SUBDEV_RESET_REPLY,
     IOTX_DM_EVENT_TOPO_GET_REPLY,
+    IOTX_DM_EVENT_TOPO_CHANGE,
     IOTX_DM_EVENT_TOPO_ADD_NOTIFY_REPLY,
     IOTX_DM_EVENT_EVENT_PROPERTY_POST_REPLY,
     IOTX_DM_EVENT_EVENT_SPECIFIC_POST_REPLY,
@@ -95,6 +97,15 @@ typedef enum {
     IOTX_DM_EVENT_FOTA_NEW_FIRMWARE,
     IOTX_DM_EVENT_NTP_RESPONSE,
     IOTX_DM_EVENT_RRPC_REQUEST,
+#ifdef LINK_VISUAL_ENABLE
+    IOTX_DM_EVENT_MODEL_LINK_VISUAL,
+#endif
+    IOTX_DM_EVENT_CLOUD_ERROR,
+    IOTX_DM_EVENT_THING_EVENT_NOTIFY,
+    IOTX_DM_EVENT_THING_EVENT_NOTIFY_REPLY,
+#ifdef DM_UNIFIED_SERVICE_POST
+    IOTX_DM_UNIFIED_SERVICE_POST_REPLY,
+#endif
     IOTX_DM_EVENT_MAX
 } iotx_dm_event_types_t;
 
@@ -186,6 +197,7 @@ int iotx_dm_get_opt(int opt, void *data);
 int iotx_dm_post_property(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len);
 int iotx_dm_property_desired_get(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len);
 int iotx_dm_property_desired_delete(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len);
+int iotx_dm_event_notify_reply(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len);
 int iotx_dm_post_event(_IN_ int devid, _IN_ char *identifier, _IN_ int identifier_len, _IN_ char *payload,
                        _IN_ int payload_len);
 
@@ -221,8 +233,14 @@ int iotx_dm_subdev_register(_IN_ int devid);
 int iotx_dm_subdev_unregister(_IN_ int devid);
 int iotx_dm_subdev_topo_add(_IN_ int devid);
 int iotx_dm_subdev_topo_del(_IN_ int devid);
+int iotx_dm_subdev_reset(_IN_ int devid);
 int iotx_dm_subdev_login(_IN_ int devid);
 int iotx_dm_subdev_logout(_IN_ int devid);
+
+int iotx_dm_subdev_connect(_IN_ int devid, _IN_ iotx_linkkit_dev_meta_info_t *subdev_list, _IN_ int subdev_total);
+int iotx_dm_multi_subdev_connect(_IN_ int devid, _IN_ iotx_linkkit_dev_meta_info_t *subdev_list, _IN_ int subdev_total);
+int iotx_dm_subdev_connect_reply(int devid, char *payload, int payload_len);
+
 int iotx_dm_get_device_type(_IN_ int devid, _OU_ int *type);
 int iotx_dm_get_device_avail_status(_IN_ int devid, _OU_ iotx_dm_dev_avail_t *status);
 int iotx_dm_get_device_status(_IN_ int devid, _OU_ iotx_dm_dev_status_t *status);

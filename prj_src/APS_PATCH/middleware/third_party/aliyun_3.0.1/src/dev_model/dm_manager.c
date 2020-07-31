@@ -1430,6 +1430,40 @@ int dm_mgr_upstream_thing_dynamictsl_get(_IN_ int devid)
     return res;
 }
 
+int dm_mgr_upstream_thing_event_notify_reply(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len)
+{
+    int res = 0;
+    dm_msg_request_t request;
+
+    if (devid < 0 || payload == NULL || payload_len <= 0) {
+        return DM_INVALID_PARAMETER;
+    }
+
+    memset(&request, 0, sizeof(dm_msg_request_t));
+    res = _dm_mgr_upstream_request_assemble(iotx_report_id(), devid, DM_URI_SYS_PREFIX, DM_URI_THING_EVENT_NOTIFY_REPLY,
+                                            payload, payload_len, "_thing.event.notify", &request);
+    if (res != SUCCESS_RETURN) {
+        return FAIL_RETURN;
+    }
+
+    /* Callback */
+    request.callback = dm_client_thing_event_notify_reply;
+
+    /* Send Message To Cloud */
+    res = dm_msg_request(DM_MSG_DEST_CLOUD, &request);
+#if !defined(DM_MESSAGE_CACHE_DISABLED)
+    if (res == SUCCESS_RETURN) {
+        int event_notify_reply = 0;
+        res = dm_opt_get(DM_OPT_UPSTREAM_EVENT_NOTIFY_REPLY, &event_notify_reply);
+        if (res == SUCCESS_RETURN && event_notify_reply) {
+            dm_msg_cache_insert(request.msgid, request.devid, IOTX_DM_EVENT_THING_EVENT_NOTIFY_REPLY, NULL);
+        }
+        res = request.msgid;
+    }
+#endif
+    return res;
+}
+
 int dm_mgr_upstream_ntp_request(void)
 {
     int res = 0;

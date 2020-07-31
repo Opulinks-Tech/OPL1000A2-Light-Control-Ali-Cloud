@@ -115,7 +115,7 @@ int _sign_get_clientid(char *clientid_string, const char *device_id, const char 
     return SUCCESS_RETURN;
 }
 
-int _iotx_generate_sign_string(const char *device_id, const char *device_name, const char *product_key, const char *device_secret, char *sign_string)
+SHM_DATA int _iotx_generate_sign_string(const char *device_id, const char *device_name, const char *product_key, const char *device_secret, char *sign_string)
 {
     char signsource[DEV_SIGN_SOURCE_MAXLEN] = {0};
     uint16_t signsource_len = 0;

@@ -5,6 +5,7 @@
 #include "infra_types.h"
 #include "infra_defs.h"
 #include "infra_compat.h"
+#include "sdk-impl_internal.h"
 
 SHM_DATA sdk_impl_ctx_t g_sdk_impl_ctx = {0};
 
@@ -27,16 +28,39 @@ void IOT_SetLogLevel(IOT_LogLevel level) {}
 
 void *HAL_Malloc(uint32_t size);
 void HAL_Free(void *ptr);
+    
+#define KV_KEY_DEVICE_SECRET            "DyncRegDeviceSecret"
+extern sdk_impl_ctx_t *sdk_impl_get_ctx(void);
+extern int HAL_SetProductKey(char *product_key);
+extern int HAL_SetDeviceName(char *device_name);
+extern int HAL_SetDeviceSecret(char *device_secret);
+extern int HAL_SetProductSecret(char *product_secret);
+extern int HAL_GetProductSecret(_OU_ char *product_secret);
+extern int HAL_Kv_Set(const char *key, const void *val, int len, int sync);
+extern int HAL_Kv_Get(const char *key, void *val, int *buffer_len);
 
 /* global variable for mqtt construction */
 static iotx_conn_info_t g_iotx_conn_info = {0};
 static char g_empty_string[1] = "";
-
+extern iotx_conn_info_pt iotx_conn_info_reload(void);
 int IOT_SetupConnInfo(const char *product_key,
                       const char *device_name,
                       const char *device_secret,
                       void **info_ptr)
 {
+    int                 rc = 0;
+    char                device_secret_actual[DEVICE_SECRET_MAXLEN] = {0};
+    char                product_secret[PRODUCT_SECRET_MAXLEN] = {0};
+    int                 device_secret_len = DEVICE_SECRET_MAXLEN;
+    sdk_impl_ctx_t     *ctx = sdk_impl_get_ctx();
+
+//    STRING_PTR_SANITY_CHECK(product_key, -1);
+//    STRING_PTR_SANITY_CHECK(device_name, -1);
+
+    HAL_SetProductKey((char *)product_key);
+    HAL_SetDeviceName((char *)device_name);
+    HAL_SetDeviceSecret((char *)device_secret);
+    
     if (product_key == NULL || device_name == NULL || device_secret == NULL ||
         strlen(product_key) > IOTX_PRODUCT_KEY_LEN ||
         strlen(device_name) > IOTX_DEVICE_NAME_LEN ||
@@ -54,6 +78,66 @@ int IOT_SetupConnInfo(const char *product_key,
 
         *info_ptr = &g_iotx_conn_info;
     }
+    
+    /* Dynamic Register Device If Need */
+    if (ctx->dynamic_register == 0) {
+#if !defined(SUPPORT_ITLS)
+//        STRING_PTR_SANITY_CHECK(device_secret, -1);
+        memcpy(device_secret_actual, device_secret, strlen(device_secret));
+#else
+        if (device_secret == NULL || strlen(device_secret) == 0) {
+            LITE_get_randstr(device_secret_actual, DEVICE_SECRET_MAXLEN - 1);
+        } else {
+            memcpy(device_secret_actual, device_secret, strlen(device_secret));
+        }
+#endif
+    } else {
+        /* Check if Device Secret exit in KV */
+        if (HAL_Kv_Get(KV_KEY_DEVICE_SECRET, device_secret_actual, &device_secret_len) == 0) {
+            sdk_info("Get DeviceSecret from KV succeed");
+
+            *(device_secret_actual + device_secret_len) = 0;
+            HAL_SetDeviceSecret(device_secret_actual);
+        } else {
+            /* KV not exit, goto dynamic register */
+            sdk_info("DeviceSecret KV not exist, Now We Need Dynamic Register...");
+
+            /* Check If Product Secret Exist */
+            HAL_GetProductSecret(product_secret);
+            if (strlen(product_secret) == 0) {
+                sdk_err("Product Secret Is Not Exist");
+                return FAIL_RETURN;
+            }
+//            STRING_PTR_SANITY_CHECK(product_secret, -1);
+
+//            rc = perform_dynamic_register((char *)product_key, (char *)product_secret, (char *)device_name, device_secret_actual);
+            if (rc != SUCCESS_RETURN) {
+                sdk_err("Dynamic Register Failed");
+                return FAIL_RETURN;
+            }
+
+            device_secret_len = strlen(device_secret_actual);
+            if (HAL_Kv_Set(KV_KEY_DEVICE_SECRET, device_secret_actual, device_secret_len, 1) != 0) {
+                sdk_err("Save Device Secret to KV Failed");
+                return FAIL_RETURN;
+            }
+
+            HAL_SetDeviceSecret(device_secret_actual);
+        }
+    }    
+
+//#if defined MQTT_COMM_ENABLED
+    if (NULL == info_ptr) {
+        return SUCCESS_RETURN;
+    }
+    *info_ptr = iotx_conn_info_reload();
+    if (*info_ptr == NULL) {
+        return -1;
+    }
+
+//#endif    
+    
+    
     return SUCCESS_RETURN;
 }
 #endif /* #ifdef MQTT_COMM_ENABLED */
@@ -93,26 +177,28 @@ int IOT_Ioctl(int option, void *data)
         break;
         case IOTX_IOCTL_SET_MQTT_DOMAIN: {
             ctx->domain_type = IOTX_CLOUD_REGION_CUSTOM;
+            res = iotx_guider_set_custom_domain(GUIDER_DOMAIN_MQTT, (const char *)data);
 
-            if (strlen(data) > IOTX_DOMAIN_MAX_LEN) {
-                return FAIL_RETURN;
-            }
-            memset(ctx->cloud_custom_domain, 0, strlen((char *)data) + 1);
-            memcpy(ctx->cloud_custom_domain, data, strlen((char *)data));
-            g_infra_mqtt_domain[IOTX_CLOUD_REGION_CUSTOM] = (const char *)ctx->cloud_custom_domain;
-            res = SUCCESS_RETURN;
+//            if (strlen(data) > IOTX_DOMAIN_MAX_LEN) {
+//                return FAIL_RETURN;
+//            }
+//            memset(ctx->cloud_custom_domain, 0, strlen((char *)data) + 1);
+//            memcpy(ctx->cloud_custom_domain, data, strlen((char *)data));
+//            g_infra_mqtt_domain[IOTX_CLOUD_REGION_CUSTOM] = (const char *)ctx->cloud_custom_domain;
+//            res = SUCCESS_RETURN;
         }
         break;
         case IOTX_IOCTL_SET_HTTP_DOMAIN: {
             ctx->domain_type = IOTX_HTTP_REGION_CUSTOM;
+            res = iotx_guider_set_custom_domain(GUIDER_DOMAIN_HTTP, (const char *)data);
 
-            if (strlen(data) > IOTX_DOMAIN_MAX_LEN) {
-                return FAIL_RETURN;
-            }
-            memset(ctx->http_custom_domain, 0, strlen((char *)data) + 1);
-            memcpy(ctx->http_custom_domain, data, strlen((char *)data));
-            g_infra_http_domain[IOTX_CLOUD_REGION_CUSTOM] = (const char *)ctx->http_custom_domain;
-            res = SUCCESS_RETURN;
+//            if (strlen(data) > IOTX_DOMAIN_MAX_LEN) {
+//                return FAIL_RETURN;
+//            }
+//            memset(ctx->http_custom_domain, 0, strlen((char *)data) + 1);
+//            memcpy(ctx->http_custom_domain, data, strlen((char *)data));
+//            g_infra_http_domain[IOTX_CLOUD_REGION_CUSTOM] = (const char *)ctx->http_custom_domain;
+//            res = SUCCESS_RETURN;
         }
         break;
         case IOTX_IOCTL_SET_DYNAMIC_REGISTER: {
@@ -227,7 +313,7 @@ typedef struct {
     void *callback;
 } impl_event_map_t;
 
-static impl_event_map_t g_impl_event_map[] = {
+SHM_DATA static impl_event_map_t g_impl_event_map[] = {
     {ITE_AWSS_STATUS,          NULL},
     {ITE_CONNECT_SUCC,         NULL},
     {ITE_CONNECT_FAIL,         NULL},

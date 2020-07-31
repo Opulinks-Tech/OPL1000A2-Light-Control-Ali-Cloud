@@ -2,11 +2,13 @@
  * Copyright (C) 2015-2018 Alibaba Group Holding Limited
  */
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include "bzopt.h"
 #include "utils.h"
 #include "cmsis_os.h"
-#include "string.h"
 
 uint8_t hex2ascii(uint8_t digit)
 {
@@ -60,10 +62,44 @@ void get_random_ali(uint8_t *random, uint8_t random_len)
     while (bytes_available < random_len) {
         seed += result;
         seed = seed % 9999;
-        snprintf((char *)byte, sizeof(byte), "%04d", seed);
+        snprintf((char *)byte, sizeof(byte), "%04u", seed);
         bytes_copy = random_len - bytes_available;
         bytes_copy = (bytes_copy > 4) ? 4 : bytes_copy;
         memcpy(random + bytes_available, byte, bytes_copy);
         bytes_available += bytes_copy;
     }
+}
+
+static void hex_byte_dump(uint8_t *data, int len, int tab_num)
+{
+#if 0    
+    int i;
+    for (i = 0; i < len; i++) {
+        printf("%02x ", data[i]);
+
+        if (!((i + 1) % tab_num)) {
+            printf("\r\n");
+        }
+    }
+
+    printf("\r\n");
+#endif    
+}
+
+void hex_byte_dump_debug(uint8_t *data, int len, int tab_num)
+{
+#if (CONFIG_BLDTIME_MUTE_DBGLOG)
+
+#else
+    hex_byte_dump(data, len, tab_num);
+#endif
+}
+
+void hex_byte_dump_verbose(uint8_t *data, int len, int tab_num)
+{
+#if defined(BZ_VERBOSE_DEBUG)
+    hex_byte_dump(data, len, tab_num);
+#else
+    
+#endif
 }

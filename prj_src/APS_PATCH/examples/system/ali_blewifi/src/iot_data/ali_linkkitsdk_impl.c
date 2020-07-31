@@ -28,19 +28,24 @@
 #include "mqtt_wrapper.h"
 #include "util_func.h"
 #include "mw_fim_default_group15_project.h"
+#include "lwip/etharp.h"
+#include "infra_net.h"
+#include "iotx_cm_internal.h"
+#include "iotx_mqtt_client.h"
 
 #ifdef BLEWIFI_SCHED_EXT
 #include "mw_fim_default_group16_project.h"
 #endif
 
-#define SET_BIT(x,n) ((x)|=(1<<(n)))
-#define CHK_BIT(x,n) (((x)&(1<<(n)))!=0)
+#ifdef ADA_REMOTE_CTRL
+#include "ada_lightbulb.h"
+#endif
 
 char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
 char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
 char DEMO_DEVICE_SECRET[IOTX_DEVICE_SECRET_LEN + 1] = {0};
 char DEMO_PRODUCT_SECRET[IOTX_PRODUCT_SECRET_LEN + 1] = {0};
-uint16_t g_property_output_flag = 0;
+
 extern osTimerId g_tRhythm;
 extern uint8_t g_rhythm_S, g_rhythm_V;
 extern uint16_t g_rhythm_H;
@@ -99,7 +104,7 @@ user_example_ctx_t *user_example_get_ctx(void)
     return &g_user_example_ctx;
 }
 
-void iot_set_scenes_color(uint8_t u8WorkMode)
+SHM_DATA void iot_set_scenes_color(uint8_t u8WorkMode)
 {
     if(u8WorkMode == WMODE_MANUAL)
     {
@@ -186,6 +191,18 @@ void iot_set_color_array(hsv_t *taColorArr, uint16_t u16ColorNum, uint8_t u8Appl
     }
 }
 
+void iot_update_cfg_for_no_cw_dev(void)
+{
+    if(light_ctrl_get_light_type() == LT_RGB)
+    {
+        // no cold/warm lights
+        g_tLightStatus.u8LightMode = 1; // default light mode for no-cold-warm-lights device
+        g_tHsvStatus.hue = 60;          // default hue for no-cold-warm-lights device
+    }
+
+    return;
+}
+
 int iot_load_cfg(uint8_t u8Mode)
 {
     uint8_t i = 0;
@@ -193,7 +210,7 @@ int iot_load_cfg(uint8_t u8Mode)
     if(u8Mode)
     {
         // load saved configuration
-        printf("load saved configuration\n");
+        //printf("load saved configuration\n");
 
         if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_LIGHT_STATUS, 0, MW_FIM_GP15_LIGHT_STATUS_SIZE, (uint8_t*)&g_tLightStatus))
         {
@@ -222,16 +239,20 @@ int iot_load_cfg(uint8_t u8Mode)
                 memcpy(&(g_taColorArr[i]), &g_tMwFimDefaultGp15ColorArrayStatus, MW_FIM_GP15_COLOR_ARRAY_SIZE);
             }
         }
+
+        iot_update_cfg_for_no_cw_dev();
     }
     else
     {
         // load default configuration
-        printf("load default configuration\n");
+        //printf("load default configuration\n");
 
         memcpy(&g_tLightStatus, &g_tMwFimDefaultGp15LightStatus, MW_FIM_GP15_LIGHT_STATUS_SIZE);
         memcpy(&g_tCtbStatus, &g_tMwFimDefaultGp15CtbStatus, MW_FIM_GP15_CTB_STATUS_SIZE);
         memcpy(&g_tHsvStatus, &g_tMwFimDefaultGp15HsvStatus, MW_FIM_GP15_HSV_STATUS_SIZE);
         memcpy(&g_tScenesStatus, &g_tMwFimDefaultGp15ScenesStatus, MW_FIM_GP15_SCENES_STATUS_SIZE);
+
+        iot_update_cfg_for_no_cw_dev();
     
         for(i = 0; i < MW_FIM_GP15_COLOR_ARRAY_NUM; i++)
         {
@@ -247,6 +268,7 @@ int iot_update_cfg(void)
     light_ctrl_update_switch(g_tLightStatus.u8LightSwitch);
     light_ctrl_set_mode(g_tLightStatus.u8LightMode);
     light_ctrl_update_brightness(g_tCtbStatus.u8Brightness);
+    colortemperature_force_overwrite(g_tCtbStatus.u32ColorTemp);
     light_ctrl_update_hsv(g_tHsvStatus.hue, g_tHsvStatus.saturation, g_tHsvStatus.value);
     light_ctrl_set_manual_light_status(g_tHsvStatus.hue, g_tHsvStatus.saturation, g_tHsvStatus.value);
 
@@ -277,20 +299,20 @@ int iot_apply_cfg(uint8_t u8Mode)
 
             iRet = 0;
     
-            printf("apply saved configuration\n");
+            //printf("apply saved configuration\n");
         }
         else
         {
             iot_load_cfg(0);
 
-            printf("apply default configuration\n");
+            //printf("apply default configuration\n");
         }
 
         iot_update_cfg();
     }
     else
     {
-        printf("apply current configuration\n");
+        //printf("apply current configuration\n");
     }
 
     light_ctrl_set_switch(g_tLightStatus.u8LightSwitch);
@@ -317,7 +339,7 @@ int iot_apply_cfg(uint8_t u8Mode)
     return iRet;
 }
 
-void iot_save_all_cfg(void)
+SHM_DATA void iot_save_all_cfg(void)
 {
     T_MwFim_GP15_Light_Status tLightStatus = {0};
     T_MwFim_GP15_Ctb_Status tCtbStatus = {0};
@@ -328,32 +350,63 @@ void iot_save_all_cfg(void)
     uint32_t u32Size = 0;
     uint8_t i = 0;
 
+    T_MwFim_GP15_Light_Status tFimLightStatus = {0};
+    T_MwFim_GP15_Ctb_Status tFimCtbStatus = {0};
+    hsv_t tFimHsvStatus = {0};
+    T_MwFim_GP15_Scenes_Status tFimScenesStatus = {0};
+    hsv_t taFimColorArr[MW_FIM_GP15_COLOR_ARRAY_NUM] = {0};
+
+    if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_LIGHT_STATUS, 0, MW_FIM_GP15_LIGHT_STATUS_SIZE, (uint8_t*)&tFimLightStatus))
+    {
+        memcpy(&tFimLightStatus, &g_tMwFimDefaultGp15LightStatus, MW_FIM_GP15_LIGHT_STATUS_SIZE);
+    }
+
+    if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_CTB_STATUS, 0, MW_FIM_GP15_CTB_STATUS_SIZE, (uint8_t*)&tFimCtbStatus))
+    {
+        memcpy(&tFimCtbStatus, &g_tMwFimDefaultGp15CtbStatus, MW_FIM_GP15_CTB_STATUS_SIZE);
+    }
+
+    if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_HSV_STATUS, 0, MW_FIM_GP15_HSV_STATUS_SIZE, (uint8_t*)&tFimHsvStatus))
+    {
+        memcpy(&tFimHsvStatus, &g_tMwFimDefaultGp15HsvStatus, MW_FIM_GP15_HSV_STATUS_SIZE);
+    }
+
+    if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_SCENES_STATUS, 0, MW_FIM_GP15_SCENES_STATUS_SIZE, (uint8_t*)&tFimScenesStatus))
+    {
+        memcpy(&tFimScenesStatus, &g_tMwFimDefaultGp15ScenesStatus, MW_FIM_GP15_SCENES_STATUS_SIZE);
+    }
+
+    for(i = 0; i < MW_FIM_GP15_COLOR_ARRAY_NUM; i++)
+    {
+        if(MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP15_PROJECT_COLOR_ARRAY_STATUS, i, MW_FIM_GP15_COLOR_ARRAY_SIZE, (uint8_t*)&(taFimColorArr[i])))
+        {
+            memcpy(&(taFimColorArr[i]), &g_tMwFimDefaultGp15ColorArrayStatus, MW_FIM_GP15_COLOR_ARRAY_SIZE);
+        }
+    }
+
     tLightStatus.u8LightSwitch = light_ctrl_get_switch();
     tLightStatus.u8LightMode = light_ctrl_get_mode();
     u32Size = sizeof(g_tLightStatus);
 
-    if(memcmp(&g_tLightStatus, &tLightStatus, u32Size))
+    if(memcmp(&tFimLightStatus, &tLightStatus, u32Size))
     {
-        memcpy(&g_tLightStatus, &tLightStatus, u32Size);
+        //printf("[%s %d] save LightStatus\n", __func__, __LINE__);
 
-        printf("[%s %d] save LightStatus\n", __func__, __LINE__);
-
-        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_LIGHT_STATUS, 0, MW_FIM_GP15_LIGHT_STATUS_SIZE, (uint8_t*)&g_tLightStatus))
+        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_LIGHT_STATUS, 0, MW_FIM_GP15_LIGHT_STATUS_SIZE, (uint8_t*)&tLightStatus))
         {
             //printf("[%s %d] MwFim_FileWrite fail\n", __func__, __LINE__);
         }
     }
 
     tCtbStatus.u8Brightness = light_ctrl_get_brightness();
+    tCtbStatus.u32ColorTemp = light_ctrl_get_color_temperature();
     u32Size = sizeof(g_tCtbStatus);
 
-    if(memcmp(&g_tCtbStatus, &tCtbStatus, u32Size))
+    if(memcmp(&tFimCtbStatus, &tCtbStatus, u32Size))
     {
-        memcpy(&g_tCtbStatus, &tCtbStatus, u32Size);
+        //printf("[%s %d] save CtbStatus\n", __func__, __LINE__);
 
-        printf("[%s %d] save CtbStatus\n", __func__, __LINE__);
-
-        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_CTB_STATUS, 0, MW_FIM_GP15_CTB_STATUS_SIZE, (uint8_t*)&g_tCtbStatus))
+        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_CTB_STATUS, 0, MW_FIM_GP15_CTB_STATUS_SIZE, (uint8_t*)&tCtbStatus))
         {
             //printf("[%s %d] MwFim_FileWrite fail\n", __func__, __LINE__);
         }
@@ -363,13 +416,11 @@ void iot_save_all_cfg(void)
     {
         u32Size = sizeof(g_tHsvStatus);
 
-        if(memcmp(&g_tHsvStatus, &tHsvStatus, u32Size))
+        if(memcmp(&tFimHsvStatus, &tHsvStatus, u32Size))
         {
-            memcpy(&g_tHsvStatus, &tHsvStatus, u32Size);
+            //printf("[%s %d] save HsvStatus\n", __func__, __LINE__);
 
-            printf("[%s %d] save HsvStatus\n", __func__, __LINE__);
-
-            if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_HSV_STATUS, 0, MW_FIM_GP15_HSV_STATUS_SIZE, (uint8_t*)&g_tHsvStatus))
+            if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_HSV_STATUS, 0, MW_FIM_GP15_HSV_STATUS_SIZE, (uint8_t*)&tHsvStatus))
             {
                 //printf("[%s %d] MwFim_FileWrite fail\n", __func__, __LINE__);
             }
@@ -382,13 +433,11 @@ void iot_save_all_cfg(void)
     tScenesStatus.u8ColorArrayEnable = g_u8CurrColorArrayEnable;
     u32Size = sizeof(g_tScenesStatus);
 
-    if(memcmp(&g_tScenesStatus, &tScenesStatus, u32Size))
+    if(memcmp(&tFimScenesStatus, &tScenesStatus, u32Size))
     {
-        memcpy(&g_tScenesStatus, &tScenesStatus, u32Size);
+        //printf("[%s %d] save ScenesStatus\n", __func__, __LINE__);
 
-        printf("[%s %d] save ScenesStatus\n", __func__, __LINE__);
-
-        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_SCENES_STATUS, 0, MW_FIM_GP15_SCENES_STATUS_SIZE, (uint8_t*)&g_tScenesStatus))
+        if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_SCENES_STATUS, 0, MW_FIM_GP15_SCENES_STATUS_SIZE, (uint8_t*)&tScenesStatus))
         {
             //printf("[%s %d] MwFim_FileWrite fail\n", __func__, __LINE__);
         }
@@ -404,13 +453,11 @@ void iot_save_all_cfg(void)
     
             for(i = 0; i < MW_FIM_GP15_COLOR_ARRAY_NUM; i++)
             {
-                if(memcmp(&(g_taColorArr[i]), &(taColorArr[i]), u32Size))
+                if(memcmp(&(taFimColorArr[i]), &(taColorArr[i]), u32Size))
                 {
-                    memcpy(&(g_taColorArr[i]), &(taColorArr[i]), u32Size);
-
-                    printf("[%s %d] save ColorArr[%u]\n", __func__, __LINE__, i);
+                    //printf("[%s %d] save ColorArr[%u]\n", __func__, __LINE__, i);
     
-                    if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_COLOR_ARRAY_STATUS, i, MW_FIM_GP15_COLOR_ARRAY_SIZE, (uint8_t*)&(g_taColorArr[i])))
+                    if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_COLOR_ARRAY_STATUS, i, MW_FIM_GP15_COLOR_ARRAY_SIZE, (uint8_t*)&(taColorArr[i])))
                     {
                         //printf("[%s %d] MwFim_FileWrite fail i[%u]\n", __func__, __LINE__, i);
                     }
@@ -423,7 +470,7 @@ void iot_save_all_cfg(void)
     {
         g_tReboot.u8Reason = 1;
     
-        printf("[%s %d] save RebootStatus\n", __func__, __LINE__);
+        //printf("[%s %d] save RebootStatus\n", __func__, __LINE__);
     
         if(MW_FIM_OK != MwFim_FileWrite(MW_FIM_IDX_GP15_PROJECT_REBOOT_STATUS, 0, MW_FIM_GP15_REBOOT_STATUS_SIZE, (uint8_t*)&g_tReboot))
         {
@@ -479,7 +526,7 @@ SHM_DATA void iot_update_local_timer(uint8_t u8LightSwitch)
 
     if(!property_payload)
     {
-        printf("Malloc property payload fail\n");
+        printf("malloc fail\n");
         goto done;
     }
 
@@ -581,6 +628,14 @@ static int user_connected_event_handler(void)
         SET_BIT(u16OutputFlag, PROPERTY_LIGHT_SWITCH);
         SET_BIT(u16OutputFlag, PROPERTY_LIGHTTYPE);
         SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+
+        if(light_ctrl_get_light_type() != LT_RGB)
+        {
+            // Even though device without warm-light, we still post color temperature to update settings in ali-cloud.
+            // Becuase device may have used firmware-with-warm-light and posted unsupported color temperature before.
+            SET_BIT(u16OutputFlag, PROPERTY_COLORTEMPERATURE);
+        }
+
         iot_update_light_property(u16OutputFlag, 0);
 
         iot_update_local_timer(0);
@@ -627,6 +682,9 @@ static int user_disconnected_event_handler(void)
     IoT_Ring_Buffer_ResetBuffer();
     post_info_clear();
     #endif
+
+    //EXAMPLE_TRACE("lwip_one_shot_arp_enable\n");
+    lwip_one_shot_arp_enable();
 
     return 0;
 }
@@ -750,7 +808,7 @@ typedef struct
 T_MsgStatus g_taMsgStatus[PROPERTY_MAX] = 
 {
     {0, 0, 2,  0,   0, 0},   // PROPERTY_LIGHT_SWITCH
-    {0, 0, 2,  0,   0, 0},   // PROPERTY_COLORTEMPERATURE
+    {0, 0, 30, 0,   0, 0},   // PROPERTY_COLORTEMPERATURE
     {0, 0, 30, 0,   0, 0},   // PROPERTY_BRIGHTNESS
     {0, 0, 2,  0,   0, 0},   // PROPERTY_WORKMODE
     {0, 0, 2,  0,   0, 0},   // PROPERTY_LIGHTMODE
@@ -763,7 +821,7 @@ T_MsgStatus g_taMsgStatus[PROPERTY_MAX] =
     {0, 0, 2,  0,   0, 0},   // PROPERTY_LOCALTIMER
 };
 
-int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
+SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
 {
     int iRet = 1;
     uint32_t u32OlderMsgIdThreshold = 100;
@@ -876,7 +934,6 @@ done:
     return iRet;
 }
 
-#if 1
 static int user_property_set_event_handler(const int devid, const char *request, const int request_len)
 {
 #ifdef ALI_NO_POST_MODE
@@ -912,18 +969,20 @@ static int user_property_set_event_handler(const int devid, const char *request,
     lite_cjson_t tColorArr = {0};
     lite_cjson_t tHSVColor = {0};
     lite_cjson_t tRGBColor = {0};
-    //lite_cjson_t tColorTemperature = {0};
+    lite_cjson_t tColorTemperature = {0};
     lite_cjson_t tLightMode = {0};
     //lite_cjson_t tLightType = {0};
 
     uint16_t u16OutputFlag = 0;
     uint32_t u32MsgId = g_u32RecvMsgId;
-    uint8_t u8SameValue = 0;
     
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
 //    printf("Property Set Received, Devid: %d, Request: %s\r\n", devid, request);
+
+    #ifdef ADA_REMOTE_CTRL
     /* stop effect operation triggered by key controller*/
-    //light_effect_timer_stop();
+    light_effect_timer_stop();
+    #endif
 
     /* stop effect operation triggered by APP*/
     light_effect_stop(NULL);
@@ -1043,7 +1102,17 @@ static int user_property_set_event_handler(const int devid, const char *request,
             if(light_ctrl_get_switch())
             {
                 //IoT_Properity.ubLightMode = (uint8_t)tLightMode.value_int;
-                light_ctrl_set_mode((uint8_t)tLightMode.value_int);
+
+                if((light_ctrl_get_light_type() == LT_RGB) && 
+                   (tLightMode.value_int == MODE_CTB))
+                {
+                    printf("mode[%u] not supported\n", tLightMode.value_int);
+                }
+                else
+                {
+                    light_ctrl_set_mode((uint8_t)tLightMode.value_int);
+                }
+            
                 light_ctrl_set_switch(1);
 
                 if(light_ctrl_get_mode() == MODE_SCENES)
@@ -1061,47 +1130,135 @@ static int user_property_set_event_handler(const int devid, const char *request,
         }
     }
 
-    /* Try To Find Brightness Property */		//Brightness				Value:<int> 0~100
-    if (!lite_cjson_object_item(&tRoot, "Brightness", 10, &tBrightness)) {
-        EXAMPLE_TRACE("Brightness: %d\r\n", tBrightness.value_int);
-
-        if(!is_expired_msg(PROPERTY_BRIGHTNESS, u32MsgId))
-        {
-            light_effect_set_status(0);
+    if(light_ctrl_get_light_type() != LT_RGB)
+    {
+        /* Try To Find Brightness Property */		//Brightness				Value:<int> 0~100
+        if (!lite_cjson_object_item(&tRoot, "Brightness", 10, &tBrightness)) {
+            EXAMPLE_TRACE("Brightness: %d\r\n", tBrightness.value_int);
     
-            if(tBrightness.value_int == light_ctrl_get_brightness())
+            if(!is_expired_msg(PROPERTY_BRIGHTNESS, u32MsgId))
             {
-                //printf("same brightness\n");
-                u8SameValue = 1;
-                //goto done;
-            }
+                uint8_t u8SameValue = 0;
     
-            if(tBrightness.value_int>100)
-            {
-                printf("[Brightness],Invalid Value:%d\n",tBrightness.value_int);
-            }
-            else
-            {
-                if((light_ctrl_get_switch()) && (light_ctrl_get_mode() == MODE_CTB))
+                light_effect_set_status(0);
+        
+                if(tBrightness.value_int == light_ctrl_get_brightness())
                 {
-                    light_ctrl_set_brightness(tBrightness.value_int);
-    
-                    if(!u8SameValue)
-                    {
-                        #ifdef ALI_NO_POST_MODE
-                        if (!g_certification_mode_flag)
-                        #endif
-                        {
-                            SET_BIT(u16OutputFlag, PROPERTY_BRIGHTNESS);
-                            SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-                            //iot_update_light_property(u16OutputFlag, u32MsgId);
-                        }
-                    }
+                    //printf("same brightness\n");
+                    u8SameValue = 1;
+                    //goto done;
+                }
+        
+                if(tBrightness.value_int>100)
+                {
+                    //printf("[Brightness],Invalid Value:%d\n",tBrightness.value_int);
                 }
                 else
                 {
-                    //printf("[%s %d] recv Brightness: curr mode[%u] is NOT MODE_CTB\n", __func__, __LINE__, light_ctrl_get_mode());
-                    light_ctrl_update_brightness(tBrightness.value_int);
+                    if((light_ctrl_get_switch()) && (light_ctrl_get_mode() == MODE_CTB))
+                    {
+                        if(!u8SameValue)
+                        {
+                            if(tBrightness.value_int == 1)
+                            {
+                                uint32_t brightness_colortemp_tmp = light_ctrl_get_color_temperature();
+        
+                                if(brightness_colortemp_tmp > 4500)
+                                {
+                                    light_ctrl_set_ctb(7000, 1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                                }
+                                else
+                                {
+                                    light_ctrl_set_ctb(2000, 1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                                }
+                            }
+                            else
+                            {
+                                light_ctrl_set_brightness(tBrightness.value_int);
+                            }
+                    
+                            #ifdef ALI_NO_POST_MODE
+                            if (!g_certification_mode_flag)
+                            #endif
+                            {
+                                SET_BIT(u16OutputFlag, PROPERTY_BRIGHTNESS);
+                                SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+                                //iot_update_light_property(u16OutputFlag, u32MsgId);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        //printf("[%s %d] recv Brightness: curr mode[%u] is NOT MODE_CTB\n", __func__, __LINE__, light_ctrl_get_mode());
+                        light_ctrl_update_brightness(tBrightness.value_int);
+                    }
+                }
+            }
+        }
+    }
+
+    if((light_ctrl_get_light_type() == LT_CW) || 
+       ((light_ctrl_get_light_type() == LT_RGBCW)))
+    {
+            /* Try To Find ColorTemperature Property */		//ColorTemperature   Value:<int> 2000~7000
+        if (!lite_cjson_object_item(&tRoot, "ColorTemperature", 16, &tColorTemperature)) {
+            EXAMPLE_TRACE("ColorTemperature: %d\r\n", tColorTemperature.value_int);
+            
+            if(!is_expired_msg(PROPERTY_COLORTEMPERATURE, u32MsgId))
+            {
+                uint8_t u8SameValue = 0;
+    
+                light_effect_set_status(0);
+    
+                if(tColorTemperature.value_int == light_ctrl_get_color_temperature())
+                {
+                    //printf("same temperature\n");
+                    u8SameValue = 1;
+                    //goto done;
+                }
+    
+                if(tColorTemperature.value_int<2000 || tColorTemperature.value_int>7000 )
+                {
+                    printf("[ColorTemperature],Invalid Value:%d\n",tColorTemperature.value_int);
+                }
+                else
+                {
+                    if((light_ctrl_get_switch()) && (light_ctrl_get_mode() == MODE_CTB))
+                    {
+                        if(!u8SameValue)
+                        {
+                            uint32_t brightness_colortemp_tmp = light_ctrl_get_brightness();
+                            if(brightness_colortemp_tmp == 1)
+                            {
+                                if(tColorTemperature.value_int > 4500)
+                                {
+                                    light_ctrl_set_ctb(7000, 1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                                }
+                                else
+                                {
+                                    light_ctrl_set_ctb(2000,1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                                }
+                            }
+                            else
+                            {
+                                light_ctrl_set_color_temperature(tColorTemperature.value_int);
+                            }
+                            //colortemperature_force_overwrite(tColorTemperature.value_int);
+    
+                            #ifdef ALI_NO_POST_MODE
+                            if (!g_certification_mode_flag)
+                            #endif
+                            {
+                                SET_BIT(u16OutputFlag, PROPERTY_COLORTEMPERATURE);
+                                SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+                                //iot_update_light_property(u16OutputFlag, u32MsgId);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        colortemperature_force_overwrite(tColorTemperature.value_int);
+                    }
                 }
             }
         }
@@ -1121,6 +1278,8 @@ static int user_property_set_event_handler(const int devid, const char *request,
 
             if(!is_expired_msg(PROPERTY_HSVCOLOR, u32MsgId))
             {
+                uint8_t u8SameValue = 0;
+
                 light_effect_set_status(0);
     
                 if((tHue.value_int == light_ctrl_get_hue()) && 
@@ -1134,10 +1293,10 @@ static int user_property_set_event_handler(const int devid, const char *request,
     
                 if((light_ctrl_get_switch()) && (light_ctrl_get_mode() == MODE_HSV))
                 {
-                    light_ctrl_set_hsv(tHue.value_int, tSaturation.value_int, tValue.value_int, LIGHT_FADE_ON, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
-    
                     if(!u8SameValue)
                     {
+                        light_ctrl_set_hsv(tHue.value_int, tSaturation.value_int, tValue.value_int, LIGHT_FADE_ON, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
+
                         #ifdef ALI_NO_POST_MODE
                         if (!g_certification_mode_flag)
                         #endif
@@ -1317,19 +1476,6 @@ static int user_property_set_event_handler(const int devid, const char *request,
             //IoT_Ring_Buffer_Push(&IoT_Properity);
         }
     }
-
-    /* Try To Find ColorTemperature Property */		//ColorTemperature   Value:<int> 2000~7000
-    if (!lite_cjson_object_item(&tRoot, "ColorTemperature", 16, &tColorTemperature)) {
-        EXAMPLE_TRACE("ColorTemperature: %d ignored\r\n", tColorTemperature.value_int);
-
-        if(!is_expired_msg(PROPERTY_COLORTEMPERATURE, u32MsgId))
-        {
-            if(light_ctrl_get_switch())
-            {
-
-            }
-        }
-    }
 #endif
 
     iRet = 0;
@@ -1345,460 +1491,11 @@ done:
 
     return iRet;
 }
-#else
-static int user_property_set_event_handler(const int devid, const char *request, const int request_len)
-{
-#ifdef ALI_NO_POST_MODE
-    if(request_len <= 64)
-    {
-        if (memcmp(g_certification_str, request, request_len)==0)
-        {
-            g_certification_cnt++;
-            if (g_certification_cnt == 8)
-            {
-                g_certification_mode_flag = 1;
-            }
-        }
-        else
-        {
-            g_certification_cnt = 0;
-            g_certification_mode_flag = 0;
-        }
-        memset(g_certification_str,0,64);
-        memcpy(g_certification_str,request,request_len);
-    }
-#endif
-
-    lite_cjson_t tRoot = {0};
-    lite_cjson_t tProperty = {0};
-    
-    #define tLightSwitch        tProperty
-    #define tLocalTimer         tProperty
-    #define tBrightness         tProperty
-    #define tWorkMode           tProperty
-    #define tColorSpeed         tProperty
-    #define tColorArr           tProperty
-    #define tHSVColor           tProperty
-    #define tRGBColor           tProperty
-    #define tColorTemperature   tProperty
-    #define tLightMode          tProperty
-    #define tLightType          tProperty
-
-    uint16_t u16OutputFlag = 0;
-    uint32_t u32MsgId = g_u32RecvMsgId;
-    uint8_t u8SameValue = 0;
-    
-    g_u8CurrColorArrayEnable = 0;
-    
-    user_example_ctx_t *user_example_ctx = user_example_get_ctx();
-//    printf("Property Set Received, Devid: %d, Request: %s\r\n", devid, request);
-    /* stop effect operation triggered by key controller*/
-    //light_effect_timer_stop();
-
-    /* stop effect operation triggered by APP*/
-    light_effect_stop(NULL);
-
-    /* Parse Request */
-    if (lite_cjson_parse(request, request_len, &tRoot)) {
-        EXAMPLE_TRACE("JSON Parse Error");
-        return -1;
-    }
-
-    /* Try To Find LightSwitch Property */		//LightSwitch   Value:<int>,0,1
-    if (!lite_cjson_object_item(&tRoot, "LightSwitch", 11, &tLightSwitch)) {
-        EXAMPLE_TRACE("LightSwitch Enable : %d\r\n", tLightSwitch.value_int);
-
-        if(is_expired_msg(PROPERTY_LIGHT_SWITCH, u32MsgId))
-        {
-            goto done;
-        }
-
-        light_ctrl_set_switch(tLightSwitch.value_int);
-        if (tLightSwitch.value_int && light_effect_get_status())
-            light_effect_start(NULL, 0);
-#ifdef ALI_NO_POST_MODE
-        if (!g_certification_mode_flag)
-#endif
-        {
-            SET_BIT(u16OutputFlag, PROPERTY_LIGHT_SWITCH);
-            iot_update_light_property(u16OutputFlag, u32MsgId);
-        }
-        goto done;
-    }
-    
-    /* Try To Find LocalTimer Property */
-    if (!lite_cjson_object_item(&tRoot, "LocalTimer", 10, &tLocalTimer) && lite_cjson_is_array(&tLocalTimer)) {
-        if (light_ctrl_get_switch() && light_effect_get_status())
-            light_effect_start(NULL, 0);
-        int index = 0;
-        int iArraySize = tLocalTimer.size;
-        T_BleWifi_Ctrl_DevSchedAll tSchedAll = {0};
-
-        EXAMPLE_TRACE("Local Timer Size: %d", iArraySize);
-
-        tSchedAll.u8Num = (uint8_t)iArraySize;
-
-        for (index = 0; index < iArraySize && index < MW_FIM_GP13_DEV_SCHED_NUM; index++) {
-            lite_cjson_t tSubItem = {0};
-
-            if(!lite_cjson_array_item(&tLocalTimer, index, &tSubItem))
-            {
-                if (lite_cjson_is_object(&tSubItem)) {
-                    lite_cjson_t tLightSwitch = {0};
-                    lite_cjson_t tTimer = {0};
-                    lite_cjson_t tEnable = {0};
-                    lite_cjson_t tIsValid = {0};
-                    lite_cjson_t tTimeZone = {0};
-
-                    if(!lite_cjson_object_item(&tSubItem, "LightSwitch", 11, &tLightSwitch) && 
-                       !lite_cjson_object_item(&tSubItem, "Timer", 5, &tTimer) && 
-                       !lite_cjson_object_item(&tSubItem, "Enable", 6, &tEnable) && 
-                       !lite_cjson_object_item(&tSubItem, "IsValid", 7, &tIsValid) && 
-                       !lite_cjson_object_item(&tSubItem, "TimezoneOffset", 14, &tTimeZone))
-                    {
-                        char sBuf[32] = {0};
-
-                        if(tTimer.value_length < 32)
-                        {
-                            memcpy(sBuf, tTimer.value, tTimer.value_length);
-                            sBuf[tTimer.value_length] = 0;
-                        }
-
-                        EXAMPLE_TRACE("Local Timer: Index[%d] LightSwitch[%d] Timer[%s] Enable[%d] IsValid[%d] TimezoneOffset[%d]", 
-                                      index, tLightSwitch.value_int, sBuf, tEnable.value_int, tIsValid.value_int, tTimeZone.value_int);
-    
-                        tSchedAll.taSched[index].u8Enable = tEnable.value_int;
-                        tSchedAll.taSched[index].u8IsValid = tIsValid.value_int;
-    
-                        tSchedAll.taSched[index].u8DevOn = tLightSwitch.value_int;
-
-                        #ifdef BLEWIFI_SCHED_EXT
-                        tSchedAll.taSchedExt[index].s32TimeZone = tTimeZone.value_int;
-                        #else
-                        tSchedAll.taSched[index].s32TimeZone = tTimeZone.value_int;
-                        #endif
-    
-                        if(dev_sched_time_set(sBuf, &(tSchedAll.taSched[index])))
-                        {
-                            //EXAMPLE_TRACE("dev_sched_time_set fail\r\n");
-    
-                            tSchedAll.taSched[index].u8Enable = 0;
-                        }
-                    }
-                }
-            }
-        }
-
-        // post local timer setting in blewifi_ctrl task
-        if(BleWifi_Ctrl_DevSchedSetAll(&tSchedAll))
-        {
-            EXAMPLE_TRACE("BleWifi_Ctrl_DevSchedSetAll fail\r\n");
-        }
-        
-        goto done;
-    }
-    
-    if(light_ctrl_get_switch()==0)
-    {
-        goto done;
-    }
-    
-    /* Try To Find HSVColor Property */  //HSVColor   Value:[child1] Hue  Value:<double>0~360   [child2] Saturation  Value:<double>0~100   [child3] Value  Value:<double>0~100
-    if (!lite_cjson_object_item(&tRoot, "HSVColor", 8, &tHSVColor)) {
-        lite_cjson_t tSaturation = {0};
-        lite_cjson_t tValue = {0};
-        lite_cjson_t tHue = {0};
-
-        if(!lite_cjson_object_item(&tHSVColor, "Saturation", 10, &tSaturation) && 
-           !lite_cjson_object_item(&tHSVColor, "Value", 5, &tValue) && 
-           !lite_cjson_object_item(&tHSVColor, "Hue", 3, &tHue))
-        {
-            EXAMPLE_TRACE("H[%d] S[%d] V[%d]", tHue.value_int, tSaturation.value_int, tValue.value_int);
-
-            if(is_expired_msg(PROPERTY_HSVCOLOR, u32MsgId))
-            {
-                goto done;
-            }
-
-            light_effect_set_status(0);
-
-            if((tHue.value_int == light_ctrl_get_hue()) && 
-               (tSaturation.value_int == light_ctrl_get_saturation()) && 
-               (tValue.value_int == light_ctrl_get_value()))
-            {
-                //printf("same HSV\n");
-                u8SameValue = 1;
-                //goto done;
-            }
-
-            if(light_ctrl_get_mode() == MODE_HSV)
-            {
-                light_ctrl_set_hsv(tHue.value_int, tSaturation.value_int, tValue.value_int, LIGHT_FADE_ON, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
-
-                if(!u8SameValue)
-                {
-                    #ifdef ALI_NO_POST_MODE
-                    if (!g_certification_mode_flag)
-                    #endif
-                    {
-                        SET_BIT(u16OutputFlag, PROPERTY_HSVCOLOR);
-                        SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-                        iot_update_light_property(u16OutputFlag, u32MsgId);
-                    }
-                }
-            }
-            else
-            {
-                //printf("[%s %d] recv HSVColor: curr mode[%u] is NOT MODE_HSV\n", __func__, __LINE__, light_ctrl_get_mode());
-                light_ctrl_update_hsv(tHue.value_int, tSaturation.value_int, tValue.value_int);
-            }
-
-            light_ctrl_set_manual_light_status(tHue.value_int, tSaturation.value_int, tValue.value_int);
-        }
-        
-        goto done;
-    }
-
-    /* Try To Find ColorTemperature Property */		//ColorTemperature   Value:<int> 2000~7000
-    if (!lite_cjson_object_item(&tRoot, "ColorTemperature", 16, &tColorTemperature)) {
-        EXAMPLE_TRACE("ColorTemperature: %d ignored\r\n", tColorTemperature.value_int);
-
-        if(is_expired_msg(PROPERTY_COLORTEMPERATURE, u32MsgId))
-        {
-            goto done;
-        }
-        
-        goto done;
-    }
-
-    /* Try To Find Brightness Property */		//Brightness				Value:<int> 0~100
-    if (!lite_cjson_object_item(&tRoot, "Brightness", 10, &tBrightness)) {
-        EXAMPLE_TRACE("Brightness: %d\r\n", tBrightness.value_int);
-
-        if(is_expired_msg(PROPERTY_BRIGHTNESS, u32MsgId))
-        {
-            goto done;
-        }
-        
-        light_effect_set_status(0);
-
-        if(tBrightness.value_int == light_ctrl_get_brightness())
-        {
-            //printf("same brightness\n");
-            u8SameValue = 1;
-            //goto done;
-        }
-
-        if(tBrightness.value_int>100)
-        {
-            printf("[Brightness],Invalid Value:%d\n",tBrightness.value_int);
-        }
-        else
-        {
-            if(light_ctrl_get_mode() == MODE_CTB)
-            {
-                light_ctrl_set_brightness(tBrightness.value_int);
-
-                if(!u8SameValue)
-                {
-                    #ifdef ALI_NO_POST_MODE
-                    if (!g_certification_mode_flag)
-                    #endif
-                    {
-                        SET_BIT(u16OutputFlag, PROPERTY_BRIGHTNESS);
-                        SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-                        iot_update_light_property(u16OutputFlag, u32MsgId);
-                    }
-                }
-            }
-            else
-            {
-                //printf("[%s %d] recv Brightness: curr mode[%u] is NOT MODE_CTB\n", __func__, __LINE__, light_ctrl_get_mode());
-                light_ctrl_update_brightness(tBrightness.value_int);
-            }
-        }
-        
-        goto done;
-    }
-
-    /* Try To Find WorkMode Property */	//WorkMode   Value:<enum> 0~5
-    if (!lite_cjson_object_item(&tRoot, "WorkMode", 8, &tWorkMode)) {
-        EXAMPLE_TRACE("WorkMode: %d\r\n",tWorkMode.value_int);
-
-        if(is_expired_msg(PROPERTY_WORKMODE, u32MsgId))
-        {
-            goto done;
-        }
-
-        if(light_ctrl_get_mode() != MODE_SCENES)
-        {
-            //printf("[%s %d] recv WorkMode: curr mode[%u] is NOT MODE_SCENES\n", __func__, __LINE__, light_ctrl_get_mode());
-            light_ctrl_set_workmode(tWorkMode.value_int);
-
-            SET_BIT(u16OutputFlag, PROPERTY_WORKMODE);
-            iot_update_light_property(u16OutputFlag, u32MsgId);
-            goto done;
-        }
-        
-        light_effect_set_status(0);
-
-        iot_set_scenes_color(tWorkMode.value_int);
-    
-        light_ctrl_set_mode(MODE_SCENES);
-
-#ifdef ALI_NO_POST_MODE
-        if (!g_certification_mode_flag)
-#endif
-        {
-            SET_BIT(u16OutputFlag, PROPERTY_SCENESCOLOR);
-            SET_BIT(u16OutputFlag, PROPERTY_WORKMODE);
-            SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-            iot_update_light_property(u16OutputFlag, u32MsgId);
-        }
-        goto done;
-    }
-
-    /* Try To Find LightMode Property */
-    if (!lite_cjson_object_item(&tRoot, "LightMode", 9, &tLightMode)) {
-        EXAMPLE_TRACE("LightMode: %d\r\n", tLightMode.value_int);
-
-        if(is_expired_msg(PROPERTY_LIGHTMODE, u32MsgId))
-        {
-            goto done;
-        }
-        
-        //IoT_Properity.ubLightMode = (uint8_t)tLightMode.value_int;
-        light_ctrl_set_mode((uint8_t)tLightMode.value_int);
-        light_ctrl_set_switch(light_ctrl_get_switch());
-
-        SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-        iot_update_light_property(u16OutputFlag, u32MsgId);
-        goto done;
-    }
-
-    /* Try To Find ColorSpeed Property */
-    if (!lite_cjson_object_item(&tRoot, "ColorSpeed", 10, &tColorSpeed)) {
-        EXAMPLE_TRACE("ColorSpeed: %d\r\n", tColorSpeed.value_int);
-
-        if(is_expired_msg(PROPERTY_COLORSPEED, u32MsgId))
-        {
-            goto done;
-        }
-        
-        //IoT_Properity.iColorSpeed = (int32_t)tColorSpeed.value_int;
-        //IoT_Ring_Buffer_Push(&IoT_Properity);
-        light_effect_set_speed(tColorSpeed.value_int);
-        goto done;
-    }
-
-    /* Try To Find LightType Property */
-    if (!lite_cjson_object_item(&tRoot, "LightType", 9, &tLightType)) {
-        EXAMPLE_TRACE("LightType: %d ignored\r\n", tLightType.value_int);
-
-        if(is_expired_msg(PROPERTY_LIGHTTYPE, u32MsgId))
-        {
-            goto done;
-        }
-        
-        //IoT_Properity.ubLightType = (uint8_t)light_ctrl_get_light_type();
-        //IoT_Ring_Buffer_Push(&IoT_Properity);
-        goto done;
-    }
-
-    /* Try To Find ColorArr Property */
-    if (!lite_cjson_object_item(&tRoot, "ColorArr", 8, &tColorArr) && lite_cjson_is_array(&tColorArr)) {
-        EXAMPLE_TRACE("ColorArr Size: %d", tColorArr.size);
-
-        if(is_expired_msg(PROPERTY_COLORARR, u32MsgId))
-        {
-            goto done;
-        }
-        
-        light_effect_set_status(1);
-        int index = 0;
-        int color_num = 0;
-        hsv_t color_arr[6] = {0};
-
-        for (index = 0; index < tColorArr.size && index < 6; index++) {
-            lite_cjson_t tSubItem = {0};
-
-            if(!lite_cjson_array_item(&tColorArr, index, &tSubItem))
-            {
-                if (lite_cjson_is_object(&tSubItem)) {
-                    lite_cjson_t tHue = {0};
-                    lite_cjson_t tSaturation = {0};
-                    lite_cjson_t tValue = {0};
-                    lite_cjson_t tEnable = {0};
-
-                    if(!lite_cjson_object_item(&tSubItem, "Hue", 3, &tHue) && 
-                       !lite_cjson_object_item(&tSubItem, "Saturation", 10, &tSaturation) && 
-                       !lite_cjson_object_item(&tSubItem, "Value", 5, &tValue) && 
-                       !lite_cjson_object_item(&tSubItem, "Enable", 6, &tEnable))
-                    {
-                        EXAMPLE_TRACE("H[%d] S[%d] V[%d] Enable[%d]", tHue.value_int, tSaturation.value_int, tValue.value_int, tEnable.value_int);
-                        
-                        if (tEnable.value_int == 1)
-                        {
-                            color_arr[index].hue = tHue.value_int;
-                            color_arr[index].saturation = tSaturation.value_int;
-                            color_arr[index].value = tValue.value_int;
-                            color_num = index + 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        iot_set_color_array(color_arr, color_num);
-        g_u8CurrColorArrayEnable = 1;
-
-        SET_BIT(u16OutputFlag, PROPERTY_COLORARR);
-        iot_update_light_property(u16OutputFlag, u32MsgId);
-
-        goto done;
-    }
-
-    /* Try To Find RGBColor Property */		//RGBColor   Value:[child1] Red  Value:<int>0~255  [child2] Blue  Value:<int>0~255   [child3] Green  Value:<int>0~255
-    if (!lite_cjson_object_item(&tRoot, "RGBColor", 8, &tRGBColor)) {
-        lite_cjson_t tRed = {0};
-        lite_cjson_t tGreen = {0};
-        lite_cjson_t tBlue = {0};
-
-        if(is_expired_msg(PROPERTY_RGBCOLOR, u32MsgId))
-        {
-            goto done;
-        }
-
-        if(!lite_cjson_object_item(&tHSVColor, "Red", 3, &tRed) && 
-           !lite_cjson_object_item(&tHSVColor, "Green", 5, &tGreen) && 
-           !lite_cjson_object_item(&tHSVColor, "Blue", 4, &tBlue))
-        {
-            EXAMPLE_TRACE("R[%d] G[%d] B[%d]", tRed.value_int, tGreen.value_int, tBlue.value_int);
-    
-            light_effect_set_status(0);
-            light_ctrl_set_rgb(tRed.value_int,tGreen.value_int,tBlue.value_int);
-#ifdef ALI_NO_POST_MODE
-            if (!g_certification_mode_flag)
-#endif
-            {
-                SET_BIT(u16OutputFlag, PROPERTY_HSVCOLOR);
-                SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
-                iot_update_light_property(u16OutputFlag, u32MsgId);
-            }
-        }
-        
-        goto done;
-    }
-
-done:
-    return 0;
-}
-#endif
 
 static int user_property_get_event_handler(const int devid, const char *request, const int request_len, char **response,
         int *response_len)
 {
-    uint32_t u32BufSize = 128;
+    uint32_t u32BufSize = 256;
     char *ps8Buf = NULL;
     uint32_t u32Offset = 0;
     uint8_t u8IsValid = 0;
@@ -1834,6 +1531,12 @@ static int user_property_get_event_handler(const int devid, const char *request,
         switch(u8LightMode)
         {
             case MODE_CTB:
+                if((light_ctrl_get_light_type() == LT_CW) || 
+                   ((light_ctrl_get_light_type() == LT_RGBCW)))
+                {
+                    u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",\"ColorTemperature\":%d", light_ctrl_get_color_temperature());
+                }
+                
                 u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",\"Brightness\":%d", light_ctrl_get_brightness());
                 break;
     
@@ -1934,6 +1637,42 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
                   reply_value_len,
                   reply_value);
 
+#if 1
+    if(g_tPrevPostInfo.u8Used)
+    {
+        if(code == 200)
+        {
+            if(msgid == g_tPrevPostInfo.iId)
+            {
+                EXAMPLE_TRACE("msgid[%d] == prev_post_id[%d], clear post info.\n", msgid, g_tPrevPostInfo.iId);
+
+                post_info_clear();
+            }
+            else
+            {
+                EXAMPLE_TRACE("msgid[%d] != prev_post_id[%d]\n", msgid, g_tPrevPostInfo.iId);
+            }
+        }
+        else
+        {
+            extern iotx_cm_connection_t *_mqtt_conncection;
+            extern void iotx_mc_set_client_state(iotx_mc_client_t *pClient, iotx_mc_state_t newState);
+
+            EXAMPLE_TRACE("code[%d]: trigger reconnect\n", code);
+
+            if((_mqtt_conncection) && (_mqtt_conncection->context))
+            {
+                iotx_mc_set_client_state(_mqtt_conncection->context, IOTX_MC_STATE_DISCONNECTED);
+            }
+            else
+            {
+                EXAMPLE_TRACE("failed to trigger reconnect\n");
+            }
+
+            // clear buffer/post_info and enable one_shot_arp in user_disconnected_event_handler()
+        }
+    }
+#else
     #ifdef ALI_POST_CTRL
     if(g_tPrevPostInfo.u8Used)
     {
@@ -1949,6 +1688,13 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
         }
     }
     #endif
+
+    if(code != 200)
+    {
+        //EXAMPLE_TRACE("lwip_one_shot_arp_enable\n");
+        lwip_one_shot_arp_enable();
+    }
+#endif
 
     return 0;
 }
@@ -2031,7 +1777,7 @@ static int user_fota_event_handler(int type, const char *version)
 SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
 {
     int iRes = 0;
-    char property_payload[200] = {0};
+    char property_payload[256] = {0};
     uint32_t u32Offset = 0;
     uint8_t already_wrt_flag = 0;
     //time_t property_timestamp = BleWifi_SntpGetRawData();
@@ -2041,7 +1787,18 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
     //char *ColorArr_update = "{\"ColorArr\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d,\"Enable\":%d}}";
     char *HSVColor_update = "\"HSVColor\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d}";
     char *ScenesColor_update = "\"ScenesColor\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d}";
-    
+
+    /*
+    uint8_t u8WarmLightEnabled = 0;
+
+    if((light_ctrl_get_light_type() == LT_CW) || 
+       (light_ctrl_get_light_type() == LT_RGBCW))
+    {
+        u8WarmLightEnabled = 1;
+    }
+    */
+
+    /*
     if((CHK_BIT(ptProp->u16Flag, PROPERTY_HSVCOLOR)) || 
        (CHK_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS)))
     {
@@ -2049,12 +1806,19 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTMODE);
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTTYPE);
     }
-    else if(CHK_BIT(ptProp->u16Flag, PROPERTY_LIGHTMODE))
+    else*/ if(CHK_BIT(ptProp->u16Flag, PROPERTY_LIGHTMODE))
     {
         switch(light_ctrl_get_mode())
         {
         case MODE_CTB:
             SET_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS);
+
+            //if(u8WarmLightEnabled)
+            if(light_ctrl_get_light_type() != LT_RGB)
+            {
+                SET_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE);
+            }
+
             break;
 
         case MODE_HSV:
@@ -2073,10 +1837,37 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHT_SWITCH);
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTTYPE);
     }
+    else if((CHK_BIT(ptProp->u16Flag, PROPERTY_HSVCOLOR)) || 
+            (CHK_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS)) || 
+            (CHK_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE)))
+    {
+        SET_BIT(ptProp->u16Flag, PROPERTY_LIGHT_SWITCH);
+        SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTMODE);
+        SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTTYPE);
+
+        if(CHK_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS))
+        {
+            //if(u8WarmLightEnabled)
+            if(light_ctrl_get_light_type() != LT_RGB)
+            {
+                SET_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE);
+            }
+        }
+        else if(CHK_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE))
+        {
+            SET_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS);
+        }
+    }
     else
     {
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHT_SWITCH);
-        //SET_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE);
+
+        //if(u8WarmLightEnabled)
+        if(light_ctrl_get_light_type() != LT_RGB)
+        {
+            SET_BIT(ptProp->u16Flag, PROPERTY_COLORTEMPERATURE);
+        }
+        
         SET_BIT(ptProp->u16Flag, PROPERTY_BRIGHTNESS);
         SET_BIT(ptProp->u16Flag, PROPERTY_WORKMODE);
         SET_BIT(ptProp->u16Flag, PROPERTY_LIGHTMODE);
@@ -2275,18 +2066,18 @@ int ali_linkkit_init(user_example_ctx_t *user_example_ctx)
 
 
     /* Choose Login Server, domain should be configured before IOT_Linkkit_Open() */
-#if USE_CUSTOME_DOMAIN
-    IOT_Ioctl(IOTX_IOCTL_SET_MQTT_DOMAIN, (void *)CUSTOME_DOMAIN_MQTT);
-    IOT_Ioctl(IOTX_IOCTL_SET_HTTP_DOMAIN, (void *)CUSTOME_DOMAIN_HTTP);
-#else
-#ifdef WORLDWIDE_USE
-    int domain_type = IOTX_CLOUD_REGION_SINGAPORE;
-#else
-    int domain_type = IOTX_CLOUD_REGION_SHANGHAI;
-#endif    
-    
-    IOT_Ioctl(IOTX_IOCTL_SET_DOMAIN, (void *)&domain_type);
-#endif
+//#if USE_CUSTOME_DOMAIN
+//    IOT_Ioctl(IOTX_IOCTL_SET_MQTT_DOMAIN, (void *)CUSTOME_DOMAIN_MQTT);
+//    IOT_Ioctl(IOTX_IOCTL_SET_HTTP_DOMAIN, (void *)CUSTOME_DOMAIN_HTTP);
+//#else
+//#ifdef WORLDWIDE_USE
+//    int domain_type = IOTX_CLOUD_REGION_SINGAPORE;
+//#else
+//    int domain_type = IOTX_CLOUD_REGION_SHANGHAI;
+//#endif    
+//    
+//    IOT_Ioctl(IOTX_IOCTL_SET_DOMAIN, (void *)&domain_type);
+//#endif
 
     /* Choose Login Method */
     int dynamic_register = 0;

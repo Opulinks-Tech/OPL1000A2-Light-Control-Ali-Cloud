@@ -12,6 +12,15 @@
 
 #include "bzopt.h"
 
+/* Breeze Bluetooth and Device specified definition */
+#define BZ_BT_MAC_LEN                             6
+#define BZ_DEV_PRODUCT_KEY_LEN                    11
+#define BZ_DEV_PRODUCT_SECRET_LEN                 16
+#define BZ_DEV_MAX_DEVICE_NAME_LEN                32
+#define BZ_DEV_DEVICE_SECRET_LEN                  32
+#define BZ_DEV_RANDOM_LEN                         16
+
+/* Breeze core profile specified definition */
 #define BZ_CMD_TYPE_MASK 0xf0
 
 #define BZ_CMD_CTRL 0x0
@@ -28,6 +37,8 @@
 #define BZ_CMD_AUTH_RSP 0x13
 #define BZ_CMD_AUTH_CFM 0x14
 #define BZ_CMD_AUTH_KEY 0x15
+#define BZ_CMD_AUTH_REKEY                         0x16
+#define BZ_CMD_AUTH_REKEY_RSP                     0x17
 
 #define BZ_CMD_TYPE_OTA 0x20
 #define BZ_CMD_OTA_VER_REQ 0x20
@@ -43,7 +54,7 @@
 
 typedef uint8_t ret_code_t;
 
-/* Error codes. */
+/* Error codes internal. */
 #define BZ_SUCCESS 0
 #define BZ_EINVALIDPARAM 1
 #define BZ_EDATASIZE 2
@@ -85,21 +96,58 @@ typedef uint8_t ret_code_t;
 
 #define BZ_EXTCMD_ERR 0x30
 #define ALI_ERROR_SRC_TYPE_EXT 0x30
-#define ALI_ERROR_SRC_EXT_SEND_RSP 0x30
+#define ALI_ERROR_SRC_EXT_SEND_RSP                0x31
+
+#define BZ_BIND_ERR                               0x40
+#define BZ_ERROR_AC_AS_DATA_LEN                   0x40
+#define BZ_ERROR_AC_AS_NO_PERMIT                  0x41
+#define BZ_ERROR_AC_AS_DELETE                     0x42
+#define BZ_ERROR_AC_AS_STORE                      0x43
+#define BZ_ERROR_AUTH_DATA                        0x44
+#define BZ_ERROR_AUTH_SIGN                        0x45
 
 #define BLE_CONN_HANDLE_INVALID 0xffff
 #define BLE_CONN_HANDLE_MAGIC   0x1234
 
-#define BLE_MAC_LEN 6
+/* Breeze sign and kv-key related definition */
+#define BZ_CLIENTID_STR                           "clientId"
+#define BZ_SEQUENCE_STR                           "sequence"
+#define BZ_DEVICE_NAME_STR                        "deviceName"
+#define BZ_DEVICE_SECRET_STR                      "deviceSecret"
+#define BZ_PRODUCT_KEY_STR                        "productKey"
+#define BZ_PRODUCT_SECRET_STR                     "productSecret"
+#define BZ_HI_SERVER_STR                          "Hi,Server"
+#define BZ_HI_CLIENT_STR                          "Hi,Client"
+#define BZ_OK_STR                                 "OK"
+
+#ifdef EN_AUTH_OFFLINE
+#define AUTH_KEY_KV_PREFIX                        "AUTH_KEY_PAIRS"
+#endif
+#define BZ_AUTH_CODE_KV_PREFIX                    "AUTH_AC_AS" // AC_length(1Byte)+AC+AS_length+AS, when no AS, use DS
 
 enum {
-    BZ_EVENT_CONNECTED,
-    BZ_EVENT_DISCONNECTED,
-    BZ_EVENT_AUTHENTICATED,
-    BZ_EVENT_TX_DONE,
-    BZ_EVENT_APINFO,
-    BZ_EVENT_ERR_DISCONT,
-    BZ_CMD_CTX_INFO,
+    BZ_EVENT_CONNECTED,                  // BLE connect
+    BZ_EVENT_DISCONNECTED,               // BLE disconnect
+    BZ_EVENT_AUTHENTICATED,              // Authenticated
+    BZ_EVENT_TX_DONE,                    // User payload tx done
+    BZ_EVENT_RX_INFO,                    // User payload received
+    BZ_EVENT_APINFO,                     // Get AP info data, for ble-awss
+    BZ_EVENT_AC_AS,                      // Get User bind data, for ble-bind
+    BZ_EVENT_AUTH_SIGN,                  // Get User sign data, for ble-user-sign
+    BZ_EVENT_ERR_DISCONT,                // OTA transfer discontinue error occur
+};
+
+// User bind data operaton result
+enum {
+    BZ_AC_AS_ADD,
+    BZ_AC_AS_UPDATE,
+    BZ_AC_AS_DELETE,
+};
+
+// User sign data operaton result
+enum {
+    BZ_AUTH_SIGN_NO_CHECK_PASS,
+    BZ_AUTH_SIGN_CHECK_PASS,
 };
 
 typedef struct {
@@ -117,14 +165,15 @@ typedef void (*ali_event_handler_t)(ali_event_t *p_event);
 typedef struct {
     ali_event_handler_t event_handler;
     uint32_t   model_id;
-    ali_data_t secret;   // secret 16 to 40 bytes
+    ali_data_t product_key;                // PK 11 to 20 bytes)
     ali_data_t product_secret; // secret 16 to 40 bytes
-    ali_data_t product_key; // PK 11 to 20 bytes). */
-    ali_data_t device_key;  // DN 20 to 32 bytes
-    uint32_t transport_timeout; /**< Timeout of Tx/Rx, in number of ms. 0 if not used. */
-    uint16_t max_mtu;           /**< Maximum MTU. */
-    uint8_t  *user_adv_data;    /**< User's adv data, if any. */
-    uint32_t user_adv_len;      /**< User's adv data length */
+    ali_data_t device_name;                // DN 20 to 32 bytes
+    ali_data_t device_secret;              // secret 16 to 40 bytes
+    uint8_t *adv_mac;       // mac address filled in breeze adv data(maybe bt addr or wifi mac)
+    uint32_t transport_timeout;            // Timeout of Tx/Rx, in number of ms. 0 if not used.
+    uint16_t max_mtu;                      // Maximum MTU.
+    uint8_t  *user_adv_data;               // User's adv data, if any.
+    uint32_t user_adv_len;                 // User's adv data length
 } ali_init_t;
 
 typedef struct {

@@ -115,7 +115,19 @@ typedef enum {
     ITE_INITIALIZE_COMPLETED,
     ITE_FOTA,
     ITE_COTA,
-    ITE_MQTT_CONNECT_SUCC
+    ITE_MQTT_CONNECT_SUCC,
+    ITE_EVENT_NOTIFY,
+    ITE_CLOUD_ERROR,
+    ITE_STATE_EVERYTHING,
+    ITE_STATE_USER_INPUT,
+    ITE_STATE_SYS_DEPEND,
+    ITE_STATE_MQTT_COMM,
+    ITE_STATE_WIFI_PROV,
+    ITE_STATE_COAP_LOCAL,
+    ITE_STATE_HTTP_COMM,
+    ITE_STATE_OTA,
+    ITE_STATE_DEV_BIND,
+    ITE_STATE_SUB_DEVICE,    
 } iotx_ioctl_event_t;
 
 #define IOT_RegisterCallback(evt, cb)           iotx_register_for_##evt(cb);
@@ -146,6 +158,22 @@ DECLARE_EVENT_CALLBACK(ITE_FOTA,                 int (*cb)(const int, const char
 DECLARE_EVENT_CALLBACK(ITE_COTA,                 int (*cb)(const int, const char *, int, const char *, const char *,
                        const char *, const char *))
 DECLARE_EVENT_CALLBACK(ITE_MQTT_CONNECT_SUCC,    int (*cb)(void))
+DECLARE_EVENT_CALLBACK(ITE_CLOUD_ERROR,          int (*cb)(const int, const char *, const char *))
+DECLARE_EVENT_CALLBACK(ITE_EVENT_NOTIFY,         int (*cb)(const int, const char *, const int))
+
+typedef int (*state_handler_t)(const int state_code, const char *state_message);
+DECLARE_EVENT_CALLBACK(ITE_STATE_EVERYTHING, state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_USER_INPUT, state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_SYS_DEPEND, state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_MQTT_COMM,  state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_WIFI_PROV,  state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_COAP_LOCAL, state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_HTTP_COMM,  state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_OTA,        state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_DEV_BIND,   state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_SUB_DEVICE, state_handler_t cb);
+DECLARE_EVENT_CALLBACK(ITE_STATE_DEV_MODEL,  state_handler_t cb);
+
 
 void *iotx_event_callback(int evt);
 
@@ -283,5 +311,72 @@ typedef struct _network_addr_t {
     addr[NETWORK_ADDR_LEN];
     unsigned short  port;
 } NetworkAddr;
+
+
+#define LIVING_SDK_VERSION  "1.6.0"
+#ifdef LIVING_SDK_VERSION
+#define LINKKIT_VERSION     "2.3.0" "_FY_" LIVING_SDK_VERSION
+#else
+#define LINKKIT_VERSION     "2.3.0"
+#endif
+
+#define GUIDER_ENV_LEN (10)
+#define GUIDER_ENV_KEY "env"
+
+#define CLIENT_ID_LEN       (384)   /* Enlarge this buffer size due to add token params etc */
+#define PRODUCT_KEY_LEN     (20)
+#define DEVICE_NAME_LEN     (32)
+#define DEVICE_ID_LEN       (64)
+#define DEVICE_SECRET_LEN   (64)
+#define PRODUCT_SECRET_LEN  (64)
+#define PID_STRLEN_MAX              (64)
+#define MID_STRLEN_MAX              (64)
+#define MEM_MAGIC                       (0x1234)
+#define RANDOM_MAX_LEN  (16)
+#define RANDOM_STR_MAX_LEN  (RANDOM_MAX_LEN * 2 + 1)
+
+
+typedef enum {
+    IOTX_VENDOR_DEV_RESET_TYPE_UNBIND_ONLY         = 0,
+    IOTX_VENDOR_DEV_RESET_TYPE_UNBIND_SHADOW_CLEAR = 1,
+    IOTX_VENDOR_DEV_RESET_TYPE_UNBIND_ALL_CLEAR    = 2,
+	IOTX_VENDOR_DEV_RESET_TYPE_INVALID
+} iotx_vendor_dev_reset_type_t;
+
+typedef enum _DOMAIN_TYPE {
+    GUIDER_DOMAIN_MQTT,
+    GUIDER_DOMAIN_HTTP,
+    GUIDER_DOMAIN_DYNAMIC_REGISTER_HTTP,
+    GUIDER_DOMAIN_MAX
+} domain_type_t;
+
+typedef enum _region_type_e
+{
+    REGION_TYPE_ID = 0,
+    REGION_TYPE_MQTTURL,
+    REGION_TYPE_MAX
+} region_type_e;
+
+typedef enum _guider_env_e
+{
+    GUIDER_ENV_DAILY = 1,
+    GUIDER_ENV_PRERELEASE,
+    GUIDER_ENV_ONLINE,
+    GUIDER_ENV_MAX
+} guider_env_e;
+
+int iotx_guider_set_dynamic_mqtt_url(char *p_mqtt_url);
+int iotx_guider_set_dynamic_region(int region);
+int iotx_guider_clear_dynamic_url(void);
+int iotx_guider_fill_conn_string(char *dst, int len, const char *fmt, ...);
+//int iotx_redirect_region_subscribe(void);
+int iotx_reconnect_region_subscribe(void);
+int iotx_guider_get_kv_env(void);
+int guider_set_direct_connect_count(unsigned char count);
+guider_env_e iotx_guider_get_env(void);
+iotx_mqtt_region_types_t iotx_guider_get_region(void);
+int iotx_guider_get_region_id(void);
+int     iotx_guider_authenticate(iotx_conn_info_t *conn);
+int     iotx_guider_set_custom_domain(int domain_type, const char *domain);
 
 #endif  /* _INFRA_COMPAT_H_ */

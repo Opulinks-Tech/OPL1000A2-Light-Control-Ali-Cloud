@@ -442,8 +442,8 @@ int online_get_device_info(void *ctx, void *resource, void *remote, void *reques
      * if cloud is not ready, don't response token
      */
 #ifdef DEVICE_MODEL_ENABLED
-    extern int awss_check_reset();
-    if(awss_check_reset()) {
+    extern int awss_check_reset(iotx_vendor_dev_reset_type_t *reset_type);
+    if(awss_check_reset(NULL)) {
         goto done;
     }
 #endif
@@ -510,7 +510,7 @@ static int dev_bind_interval = 0;
 static char dev_sync_token = 0;
 static char dev_bind_cnt = 0;
 //static int __awss_dev_bind_notify()
-int __awss_dev_bind_notify()
+SHM_DATA int __awss_dev_bind_notify()
 {
     /*
      * wait for token is sent to cloud and rx reply from cloud

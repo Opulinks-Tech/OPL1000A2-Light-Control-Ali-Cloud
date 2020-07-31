@@ -7,6 +7,7 @@
 #include <string.h>
 #include "..\src\breeze\include\sha256.h"
 #include "infra_config.h"
+typedef unsigned int WORD;
 
 /****************************** MACROS ******************************/
 #define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
@@ -18,7 +19,6 @@
 #define EP1(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
 #define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
 #define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
-typedef unsigned int WORD;
 
 /**************************** VARIABLES *****************************/
 static const WORD k[64] = {

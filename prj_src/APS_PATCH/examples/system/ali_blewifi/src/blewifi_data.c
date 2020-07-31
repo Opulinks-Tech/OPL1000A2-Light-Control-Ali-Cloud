@@ -33,6 +33,7 @@
 #include "mw_fim_default_group03.h"
 #include "mw_fim_default_group03_patch.h"
 #include "at_cmd_common.h"
+#include "infra_config.h"
 
 #define HI_UINT16(a) (((a) >> 8) & 0xFF)
 #define LO_UINT16(a) ((a) & 0xFF)
@@ -79,7 +80,7 @@ static void BleWifi_Ble_ProtocolHandler_EngWifiMacRead(uint16_t type, uint8_t *d
 static void BleWifi_Ble_ProtocolHandler_EngBleMacWrite(uint16_t type, uint8_t *data, int len);
 static void BleWifi_Ble_ProtocolHandler_EngBleMacRead(uint16_t type, uint8_t *data, int len);
 static void BleWifi_Ble_ProtocolHandler_EngBleCmd(uint16_t type, uint8_t *data, int len);
-static T_BleWifi_Ble_ProtocolHandlerTbl g_tBleProtocolHandlerTbl[] =
+SHM_DATA static T_BleWifi_Ble_ProtocolHandlerTbl g_tBleProtocolHandlerTbl[] =
 {
     {BLEWIFI_REQ_SCAN,                      BleWifi_Ble_ProtocolHandler_Scan},
     {BLEWIFI_REQ_CONNECT,                   BleWifi_Ble_ProtocolHandler_Connect},
@@ -511,7 +512,7 @@ static void BleWifi_Eng_BleCmd(uint8_t *data, int len)
 static void BleWifi_Ble_ProtocolHandler_Scan(uint16_t type, uint8_t *data, int len)
 {
     BLEWIFI_INFO("BLEWIFI: Recv BLEWIFI_REQ_SCAN \r\n");
-    BleWifi_Wifi_DoScan(data, len);
+    BleWifi_Wifi_DoScan(data, len, 0);
 }
 
 static void BleWifi_Ble_ProtocolHandler_Connect(uint16_t type, uint8_t *data, int len)

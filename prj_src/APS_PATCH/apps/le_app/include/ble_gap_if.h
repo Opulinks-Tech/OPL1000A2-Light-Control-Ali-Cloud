@@ -424,9 +424,9 @@ LE_ERR_STATE LeGapSetDataChannelPduLen(UINT16 conn_hdl, UINT16 tx_octets, UINT16
 LE_ERR_STATE LeGapSetRpaTimeout(UINT16 timeout);
 
 /**
- * @brief    Get owner device address.
+ * @brief    Get owner device public address.
  */
-void LeGapGetBtAddr(void);
+LE_ERR_STATE LeGapGetBdAddr(BD_ADDR addr);
 
 /**
  * @brief    Connection parameters update response.

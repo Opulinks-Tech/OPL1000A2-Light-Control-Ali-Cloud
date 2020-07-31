@@ -29,6 +29,11 @@
 #include "at_cmd_app_patch.h"
 #endif
 
+#ifdef ADA_REMOTE_CTRL
+#undef printf
+#define printf(...)
+#endif
+
 extern uint8_t g_ubAppCtrlRequestRetryTimes;
 extern uint8_t g_led_mp_mode_flag;
 extern uint8_t g_led_mp_cnt;
@@ -62,7 +67,7 @@ static T_BleWifi_Wifi_EventHandlerTbl g_tWifiEventHandlerTbl[] =
     {0xFFFFFFFF,                        NULL}
 };
 
-void BleWifi_Wifi_DoScan(uint8_t *data, int len)
+void BleWifi_Wifi_DoScan(uint8_t *data, int len, uint8_t u8BySsid)
 {
     wifi_scan_config_t scan_config = {0};
     scan_config.show_hidden = data[0];
@@ -70,8 +75,9 @@ void BleWifi_Wifi_DoScan(uint8_t *data, int len)
 
 #ifdef ALI_BLE_WIFI_PROVISION 
     //if(g_Ali_wifi_provision==1)
-    if(true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1))
-    {    
+    //if(true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1))
+    if(u8BySsid)
+    {
         scan_config.ssid = (uint8_t *)g_apInfo.ssid;
     }
 #endif
@@ -154,7 +160,7 @@ static void BleWifi_Wifi_SendDeviceInfo(blewifi_device_info_t *dev_info)
 
     pos = data = malloc(sizeof(blewifi_scan_info_t));
     if (data == NULL) {
-        printf("malloc error\r\n");
+        printf("malloc error\n");
         return;
     }
 
@@ -254,7 +260,7 @@ SHM_DATA void BleWifi_Wifi_SendStatusInfo(uint16_t uwType)
 
     pubPos = pubData = malloc(sizeof(blewifi_wifi_status_info_t));
     if (pubData == NULL) {
-        printf("malloc error\r\n");
+        printf("malloc error\n");
         return;
     }
 
@@ -359,7 +365,7 @@ static void BleWifi_Wifi_UpdateAutoConnList(uint16_t apCount, wifi_scan_info_t *
     info = (wifi_auto_connect_info_t *)malloc(sizeof(wifi_auto_connect_info_t));
     if (NULL == info)
     {
-        printf("malloc fail, prepare is NULL\r\n");
+        printf("malloc fail\n");
         return;
     }
     // 2. comapre
@@ -392,7 +398,7 @@ static void BleWifi_Wifi_SendSingleScanReport(uint16_t apCount, blewifi_scan_inf
 
     pos = data = malloc(malloc_size);
     if (data == NULL) {
-        printf("malloc error\r\n");
+        printf("malloc error\n");
         return;
     }
 
@@ -441,7 +447,7 @@ SHM_DATA int BleWifi_Wifi_SendScanReport(void)
     ap_list = (wifi_scan_info_t *)malloc(sizeof(wifi_scan_info_t) * apCount);
 
     if (!ap_list) {
-        printf("malloc fail, ap_list is NULL\r\n");
+        printf("malloc fail\n");
         ubAppErr = -1;
         goto err;
     }
@@ -452,7 +458,7 @@ SHM_DATA int BleWifi_Wifi_SendScanReport(void)
 
     blewifi_ap_list = (blewifi_scan_info_t *)malloc(sizeof(blewifi_scan_info_t) *apCount);
     if (!blewifi_ap_list) {
-        printf("malloc fail, blewifi_ap_list is NULL\r\n");
+        printf("malloc fail\n");
         ubAppErr = -1;
         goto err;
     }
@@ -462,7 +468,7 @@ SHM_DATA int BleWifi_Wifi_SendScanReport(void)
     {
         info = (wifi_auto_connect_info_t *)malloc(sizeof(wifi_auto_connect_info_t) * ubAPPAutoConnectGetApNum);
         if (!info) {
-            printf("malloc fail, info is NULL\r\n");
+            printf("malloc fail\n");
             ubAppErr = -1;
             goto err;
         }
@@ -534,7 +540,7 @@ SHM_DATA int BleWifi_Wifi_UpdateScanInfoToAutoConnList(void)
     ap_list = (wifi_scan_info_t *)malloc(sizeof(wifi_scan_info_t) * apCount);
 
     if (!ap_list) {
-        printf("malloc fail, ap_list is NULL\r\n");
+        printf("malloc fail\n");
         ubAppErr = -1;
         goto err;
     }
@@ -642,9 +648,12 @@ static int BleWifi_Wifi_EventHandler_Start(wifi_event_id_t event_id, void *data,
 
 static int BleWifi_Wifi_EventHandler_Connected(wifi_event_id_t event_id, void *data, uint16_t length)
 {
+#ifdef ADA_REMOTE_CTRL
+#else
     uint8_t reason = *((uint8_t*)data);
     
     printf("\r\nWi-Fi Connected, reason %d \r\n", reason);
+#endif
     lwip_net_start(WIFI_MODE_STA);
     BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_CONNECTION_IND, NULL, 0);
 
@@ -653,9 +662,12 @@ static int BleWifi_Wifi_EventHandler_Connected(wifi_event_id_t event_id, void *d
 
 static int BleWifi_Wifi_EventHandler_Disconnected(wifi_event_id_t event_id, void *data, uint16_t length)
 {
+#ifdef ADA_REMOTE_CTRL
+#else
     uint8_t reason = *((uint8_t*)data);
     
     printf("\r\nWi-Fi Disconnected , reason %d\r\n", reason);
+#endif
     BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_DISCONNECTION_IND, NULL, 0);
 
     return 0;
@@ -708,7 +720,7 @@ static int BleWifi_Wifi_EventHandler_ScanComplete(wifi_event_id_t event_id, void
         {
             ++g_u32MpScanCnt;
 
-            printf("MP: scan count[%u]\n", g_u32MpScanCnt);
+            //printf("MP: scan count[%u]\n", g_u32MpScanCnt);
 
             if(g_u32MpScanCnt >= 2)
             {
@@ -716,11 +728,11 @@ static int BleWifi_Wifi_EventHandler_ScanComplete(wifi_event_id_t event_id, void
                 g_led_mp_mode_flag = 0;
 
                 #ifdef BLEWIFI_REFINE_INIT_FLOW
-                printf("BLE ADV start\n");
+                //printf("BLE ADV start\n");
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_BLE_ADV_START, NULL, 0);
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_INIT_COMPLETE, NULL, 0);
                 #else
-                printf("Networking start\n");
+                //printf("Networking start\n");
                 BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET, true);
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_START, NULL, 0);
                 #endif
@@ -749,9 +761,12 @@ static int BleWifi_Wifi_EventHandler_GotIp(wifi_event_id_t event_id, void *data,
 
 static int BleWifi_Wifi_EventHandler_ConnectionFailed(wifi_event_id_t event_id, void *data, uint16_t length)
 {
+#ifdef ADA_REMOTE_CTRL
+#else
     uint8_t reason = *((uint8_t*)data);
 
     printf("\r\nWi-Fi Connected failed, reason %d\r\n", reason);
+#endif
     BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_DISCONNECTION_IND, NULL, 0);
 
     return 0;

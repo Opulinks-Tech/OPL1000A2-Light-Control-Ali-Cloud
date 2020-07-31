@@ -3,14 +3,35 @@
  */
 #include "dev_bind_internal.h"
 #include "infra_sha1.h"
+#include "iot_export_diagnosis.h"
 
 #if defined(__cplusplus)  /* If this is a C++ compiler, use C linkage */
 extern "C" {
 #endif
 
 uint8_t aes_random[RANDOM_MAX_LEN] = {0};
+uint8_t g_token_type = TOKEN_TYPE_INVALID;
 
-int awss_set_token(uint8_t token[RANDOM_MAX_LEN])
+void zconfig_dump_hex(uint8_t *data, int len, int tab_num)
+{
+#if (CONFIG_BLDTIME_MUTE_DBGLOG)
+
+#else
+    int i;
+    for (i = 0; i < len; i++) {
+        printf("%02x ", data[i]);
+
+        if (!((i + 1) % tab_num)) {
+            printf("\r\n");
+        }
+    }
+
+    printf("\r\n");
+#endif
+}
+
+
+int awss_set_token(uint8_t token[RANDOM_MAX_LEN], bind_token_type_t token_type)
 {
     if (token != NULL) {
         memcpy(aes_random, token, RANDOM_MAX_LEN);
@@ -21,8 +42,50 @@ int awss_set_token(uint8_t token[RANDOM_MAX_LEN])
 //    }
 //    printf("\r\n");
     
+    char rand_str[RANDOM_MAX_LEN * 2 + 1] = {0};
+    if ((token == NULL) || (token_type >= TOKEN_TYPE_MAX)) {
+        return STATE_USER_INPUT_NULL_POINTER;
+    }
+
+    memcpy(aes_random, token, RANDOM_MAX_LEN);
+    g_token_type = token_type;
+    utils_hex_to_str(aes_random, RANDOM_MAX_LEN, rand_str, sizeof(rand_str));
+//    dump_dev_bind_status(STATE_BIND_SET_APP_TOKEN, "bind: app token set (%d):%s", g_token_type, rand_str);
+//    return STATE_SUCCESS;    
+    
     return 0;
 }
+
+int awss_get_token(uint8_t token_buf[], int token_buf_len, bind_token_type_t *p_token_type)
+{
+    int i = 0;
+    char token_str[RANDOM_STR_MAX_LEN] = {0};
+
+    if (!token_buf || token_buf_len < RANDOM_STR_MAX_LEN) 
+    {
+        return STATE_USER_INPUT_INVALID;
+    }
+
+    for (i = 0; i < sizeof(aes_random); i ++)  // check g_aes_random is initialed or not
+    {
+        if (aes_random[i] != 0x00) {
+            break;
+        }
+    }
+
+    if (i >= sizeof(aes_random)) { // g_aes_random needs to be initialed
+        produce_random(aes_random, sizeof(aes_random));
+        awss_debug("produce random:");
+        zconfig_dump_hex((uint8_t *)aes_random, RANDOM_MAX_LEN, 24);
+    }
+
+    utils_hex_to_str(aes_random, RANDOM_MAX_LEN, token_str, sizeof(token_str));
+    memcpy(token_buf, token_str, RANDOM_STR_MAX_LEN);
+    *p_token_type = (bind_token_type_t)g_token_type;
+
+    return STATE_SUCCESS;
+}
+
 #ifdef WIFI_PROVISION_ENABLED
 /*
  * 1. place 0 @ 0, because of java modified-UTF8

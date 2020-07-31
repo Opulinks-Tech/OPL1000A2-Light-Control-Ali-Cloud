@@ -46,6 +46,10 @@ void dm_client_ntp_response(int fd, const char *topic, const char *payload, unsi
 void dm_client_ext_error(int fd, const char *topic, const char *payload, unsigned int payload_len, void *context);
 #endif
 
+void dm_client_thing_event_notify_reply(int fd, const char *topic, const char *payload, unsigned int payload_len,
+                                      void *context);
+
+
 #ifdef DEVICE_MODEL_GATEWAY
 int dm_client_subdev_unsubscribe(char product_key[IOTX_PRODUCT_KEY_LEN + 1], char device_name[IOTX_DEVICE_NAME_LEN + 1]);
 void dm_client_thing_topo_add_notify(int fd, const char *topic, const char *payload, unsigned int payload_len,

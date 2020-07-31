@@ -46,6 +46,8 @@ static dm_client_uri_map_t g_dm_client_uri_map[] = {
 #endif
 };
 
+volatile uint8_t g_u8IotUnbind = 0;
+
 static int _dm_client_subscribe_filter(char *uri, char *uri_name, char product_key[IOTX_PRODUCT_KEY_LEN + 1],
                                        char device_name[IOTX_DEVICE_NAME_LEN + 1])
 {
@@ -87,6 +89,13 @@ int dm_client_subscribe_all(char product_key[IOTX_PRODUCT_KEY_LEN + 1], char dev
 
     for (fail_count = 0; fail_count < IOTX_DM_CLIENT_SUB_RETRY_MAX_COUNTS; fail_count++) {
 
+        if(g_u8IotUnbind)
+        {
+            printf("[%s %d] unbind\n", __func__, __LINE__);
+            DM_free(uri);
+            return FAIL_RETURN; 
+        }
+
         res = dm_utils_service_name((char *)g_dm_client_uri_map[0].uri_prefix, (char *)g_dm_client_uri_map[0].uri_name,
                                     product_key, device_name, &uri);
         if (res < SUCCESS_RETURN) {
@@ -120,6 +129,14 @@ int dm_client_subscribe_all(char product_key[IOTX_PRODUCT_KEY_LEN + 1], char dev
 #endif
 
     for (; index < number; index++) {
+
+        if(g_u8IotUnbind)
+        {
+            printf("[%s %d] unbind\n", __func__, __LINE__);
+            DM_free(uri);
+            return FAIL_RETURN; 
+        }
+
         if ((g_dm_client_uri_map[index].dev_type & dev_type) == 0) {
             continue;
         }
@@ -166,11 +183,14 @@ int awss_reported = 0; //Netlink Kevin modify for rebinding
 static void _dm_client_event_cloud_connected_handle(void)
 {
 #ifdef DEV_BIND_ENABLED
+    #ifdef ALI_REPORT_TOKEN_AFTER_UNBIND
+    #else
 //    static int awss_reported = 0;
     if(awss_reported == 0) {
         awss_reported = 1;
         awss_report_cloud();
     }
+    #endif
 #endif
     dm_log_info("IOTX_CM_EVENT_CLOUD_CONNECTED");
     dm_msg_cloud_connected();
@@ -399,6 +419,21 @@ void dm_client_thing_deviceinfo_delete_reply(int fd, const char *topic, const ch
     source.context = NULL;
 
     dm_msg_proc_thing_deviceinfo_delete_reply(&source);
+}
+
+void dm_client_thing_event_notify_reply(int fd, const char *topic, const char *payload, unsigned int payload_len,
+                                      void *context)
+{
+    dm_msg_source_t source;
+
+    memset(&source, 0, sizeof(dm_msg_source_t));
+
+    source.uri = topic;
+    source.payload = (unsigned char *)payload;
+    source.payload_len = payload_len;
+    source.context = NULL;
+
+    dm_msg_proc_thing_event_notify_reply(&source);
 }
 
 void dm_client_thing_dynamictsl_get_reply(int fd, const char *topic, const char *payload, unsigned int payload_len,

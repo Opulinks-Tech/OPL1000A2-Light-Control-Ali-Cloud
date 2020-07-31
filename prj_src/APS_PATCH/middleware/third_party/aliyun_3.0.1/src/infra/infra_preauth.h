@@ -31,5 +31,4 @@ int iotx_redirect_region_subscribe(void);
 int iotx_redirect_set_flag(int flag);
 int iotx_redirect_get_flag(void);
 int iotx_redirect_get_iotId_iotToken(char *iot_id,char *iot_token,char *host,uint16_t *pport);
-
 #endif /* #ifndef __INFRA_PREAUTH__ */

@@ -9,11 +9,12 @@
 #define TOPIC_RESET_REPORT_REPLY   "/sys/%s/%s/thing/reset_reply"
 #define METHOD_RESET_REPORT        "thing.reset"
 
-#define AWSS_RESET_REQ_FMT         "{\"id\":%s, \"version\":\"1.0\", \"method\":\"%s\", \"params\":%s}"
+#define AWSS_RESET_REQ_FMT         "{\"id\":%s, \"version\":\"1.0\", \"method\":\"%s\", \"params\":{\"resetKey\":{\"devReset\":\"%d\"}}}"
 
 #define AWSS_KV_RST                "awss.rst"
+#define AWSS_KV_RST_TYPE           "awss.rst.type"
 
-int awss_check_reset();
+//int awss_check_reset();
 
 /**
  * @brief   report reset to cloud.
@@ -24,7 +25,7 @@ int awss_check_reset();
  *      device will save reset flag if device dosen't connect cloud, device will fails to send reset to cloud.
  *      when connection between device and cloud is ready, device will retry to report reset to cloud.
  */
-int awss_report_reset();
+//int awss_report_reset();
 
 /**
  * @brief   stop to report reset to cloud.
@@ -34,6 +35,6 @@ int awss_report_reset();
  * @note
  *      just stop report reset to cloud without any touch reset flag in flash.
  */
-int awss_stop_report_reset();
+//int awss_stop_report_reset();
 
 #endif

@@ -504,6 +504,60 @@ int dm_msg_thing_service_request(_IN_ char product_key[IOTX_PRODUCT_KEY_LEN + 1]
 }
 #endif
 
+const char DM_MSG_EVENT_EVENT_NOTIFY_REPLY_FMT[] DM_READ_ONLY =
+            "{\"id\":%d,\"code\":%d,\"devid\":%d,\"payload\":%.*s}";
+int dm_msg_thing_event_notify_reply(dm_msg_response_payload_t *response)
+{
+    int res = 0, devid = 0, id = 0, message_len = 0, payload_len = 0;
+    char *message = NULL, *payload = NULL;
+    char int_id[DM_UTILS_UINT32_STRLEN] = {0};
+
+    /* Message ID */
+    if (response->id.value_length > DM_UTILS_UINT32_STRLEN) {
+        return FAIL_RETURN;
+    }
+    memcpy(int_id, response->id.value, response->id.value_length);
+    id = atoi(int_id);
+
+    /* dm_log_debug("Current ID: %d", id); */
+
+#if !defined(DM_MESSAGE_CACHE_DISABLED)
+    dm_msg_cache_node_t *node = NULL;
+    res = dm_msg_cache_search(id, &node);
+    if (res != SUCCESS_RETURN) {
+        return FAIL_RETURN;
+    }
+    devid = node->devid;
+#endif
+
+    if ((strlen("success") == response->message.value_length) &&
+        (memcmp("success", response->message.value, response->message.value_length) == 0)) {
+        payload = response->data.value;
+        payload_len = response->data.value_length;
+    } else {
+        payload = response->message.value;
+        payload_len = response->message.value_length;
+    }
+
+    message_len = strlen(DM_MSG_EVENT_EVENT_NOTIFY_REPLY_FMT) + DM_UTILS_UINT32_STRLEN * 3 + payload_len +
+                  1;
+    message = DM_malloc(message_len);
+    if (message == NULL) {
+        return DM_MEMORY_NOT_ENOUGH;
+    }
+    memset(message, 0, message_len);
+    HAL_Snprintf(message, message_len, DM_MSG_EVENT_EVENT_NOTIFY_REPLY_FMT, id, response->code.value_int, devid,
+                 payload_len, payload);
+
+    res = _dm_msg_send_to_user(IOTX_DM_EVENT_THING_EVENT_NOTIFY_REPLY, message);
+    if (res != SUCCESS_RETURN) {
+        DM_free(message);
+        return FAIL_RETURN;
+    }
+
+    return SUCCESS_RETURN;
+}
+
 const char DM_MSG_EVENT_RRPC_REQUEST_FMT[] DM_READ_ONLY =
             "{\"id\":\"%.*s\",\"devid\":%d,\"serviceid\":\"%.*s\",\"rrpcid\":\"%.*s\",\"payload\":%.*s}";
 int dm_msg_rrpc_request(_IN_ char product_key[IOTX_PRODUCT_KEY_LEN + 1],

@@ -17,6 +17,7 @@
 #include "ali_linkkitsdk_decl.h"
 #include "blewifi_ctrl.h"
 #include "blewifi_configuration.h"
+#include "infra_config.h"
 
 #define CTB_FADE_PERIOD_MS 1000
 #define CTB_FADE_STEP_MS  10
@@ -68,6 +69,60 @@ light_effect_t g_light_effect = {0};
 TimerHandle_t g_TimerLightEffect;
 
 uint16_t g_u16ColorSpeedPer = 0;
+
+#ifdef ADA_REMOTE_CTRL
+osSemaphoreId g_tLightCtrlSem = NULL;
+
+int light_ctrl_lock(void)
+{
+    int iRet = -1;
+    int iStatus = 0;
+
+    if(!g_tLightCtrlSem)
+    {
+        //printf("[%s %d] sem is null\n", __func__, __LINE__);
+        goto done;
+    }
+
+    iStatus = osSemaphoreWait(g_tLightCtrlSem, osWaitForever);
+
+    if(iStatus != osOK)
+    {
+        //printf("[%s %d] osSemaphoreWait fail, status[%d]\n", __func__, __LINE__, iStatus);
+        goto done;
+    }
+
+    iRet = 0;
+
+done:
+    return iRet;
+}
+
+int light_ctrl_unlock(void)
+{
+    int iRet = -1;
+
+    if(!g_tLightCtrlSem)
+    {
+        //printf("[%s %d] sem is null\n", __func__, __LINE__);
+        goto done;
+    }
+    
+    if(osSemaphoreRelease(g_tLightCtrlSem) != osOK)
+    {
+        //printf("[%s %d] osSemaphoreWait fail\n", __func__, __LINE__);
+        goto done;
+    }
+
+    iRet = 0;
+
+done:
+    return iRet;
+}
+#else
+#define light_ctrl_lock(...)
+#define light_ctrl_unlock(...)
+#endif
 
 void light_state_debug_print(void)
 {
@@ -186,17 +241,37 @@ void light_state_debug_print(void)
 
 void light_effect_set_status(uint8_t light_effect_status)
 {
+    light_ctrl_lock();
+
     g_light_effect_status = light_effect_status;
+
+    light_ctrl_unlock();
 }
 
 uint8_t light_effect_get_status(void)
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_effect_status;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_effect_status;
+#endif
 }
 
 void colortemperature_force_overwrite(uint32_t colortemp)
 {
+    light_ctrl_lock();
+
     g_light_status.color_temperature = colortemp;
+
+    light_ctrl_unlock();
 }
 
 uint8_t normalize_colortemperature(uint32_t colortemp_k_unit)
@@ -206,62 +281,118 @@ uint8_t normalize_colortemperature(uint32_t colortemp_k_unit)
 
 void light_ctrl_set_light_type(uint8_t light_type,uint8_t power_level)
 {
+    light_ctrl_lock();
+
     g_light_status.light_type = light_type;
     g_light_status.power_level = power_level;
+
+    light_ctrl_unlock();
 }
 
 uint8_t light_ctrl_get_light_type(void)
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.light_type;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.light_type;
+#endif
 }
 
 
 void light_ctrl_set_manual_light_status(uint16_t hue,uint8_t saturation,uint8_t value)
 {
+    light_ctrl_lock();
+
     g_manual_light_status.hue = hue;
     g_manual_light_status.saturation = saturation;
     g_manual_light_status.value = value;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_get_manual_light_status(uint16_t *hue,uint8_t *saturation,uint8_t *value)
 {
+    light_ctrl_lock();
+
     *hue = g_manual_light_status.hue;
     *saturation = g_manual_light_status.saturation;
     *value = g_manual_light_status.value;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_set_fade_period_ms(uint32_t fade_period_ms)
 {
+    light_ctrl_lock();
+
     g_light_status.fade_period_ms = fade_period_ms;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_set_fade_step_ms(uint32_t fade_step_ms)
 {
+    light_ctrl_lock();
+
     g_light_status.fade_step_ms = fade_step_ms;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_set_scenescolor(uint16_t hue, uint8_t saturation, uint8_t value)
 {
+    light_ctrl_lock();
+
     g_light_status.scene_hue = hue;
     g_light_status.scene_saturation = saturation;
     g_light_status.scene_value = value;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_get_scenescolor(uint16_t *hue, uint8_t *saturation, uint8_t *value)
 {
+    light_ctrl_lock();
+
     *hue = g_light_status.scene_hue;
     *saturation = g_light_status.scene_saturation;
     *value = g_light_status.scene_value;
+
+    light_ctrl_unlock();
 }
 
 void light_ctrl_set_workmode(uint8_t workmode)
 {
+    light_ctrl_lock();
+
     g_light_status.workmode = workmode;
+
+    light_ctrl_unlock();
 }
 
 uint8_t light_ctrl_get_workmode(void)
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.workmode;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.workmode;
+#endif
 }
 
 void light_ctrl_init()
@@ -279,6 +410,15 @@ void light_ctrl_init()
     g_light_status.fade_period_ms    = GENERAL_FADE_PERIOD_MS;
     g_light_status.fade_step_ms      = GENERAL_FADE_STEP_MS;
     g_light_status.workmode          = WMODE_MANUAL;
+
+    #ifdef ADA_REMOTE_CTRL
+    if(g_tLightCtrlSem == NULL)
+    {
+        osSemaphoreDef_t tSemDef = {0};
+
+        g_tLightCtrlSem = osSemaphoreCreate(&tSemDef, 1);
+    }
+    #endif
 
     /* initialize effect control*/
     light_effect_init();
@@ -387,6 +527,8 @@ uint8_t light_ctrl_set_rgb(uint8_t red, uint8_t green, uint8_t blue)
 
     uint8_t saturation = 0, value = 0;
 
+    light_ctrl_lock();
+
     fade_timer_smart_init(HSV_FADE_PERIOD_MS, HSV_FADE_STEP_MS);
 
     opl_light_fade_with_time_central_fade_ctrl(Red_Light, red, 0);
@@ -411,6 +553,8 @@ uint8_t light_ctrl_set_rgb(uint8_t red, uint8_t green, uint8_t blue)
 
     g_light_status.mode = MODE_HSV;
 
+    light_ctrl_unlock();
+
 #if W_DEBUG
     printf("light_ctrl_set_rgb()\n");
     light_state_debug_print();
@@ -419,7 +563,7 @@ uint8_t light_ctrl_set_rgb(uint8_t red, uint8_t green, uint8_t blue)
 }
 
 
-uint8_t light_ctrl_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value, uint8_t fade, uint8_t led_status_update, uint8_t rgb_lighten_per)
+SHM_DATA uint8_t light_ctrl_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value, uint8_t fade, uint8_t led_status_update, uint8_t rgb_lighten_per)
 {
     if (hue > 360 || saturation > 100 || value > 100 || rgb_lighten_per > 100)
     {
@@ -439,6 +583,8 @@ uint8_t light_ctrl_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value, uint
         green = (green*rgb_lighten_per)/100;
         blue = (blue*rgb_lighten_per)/100;
     }
+
+    light_ctrl_lock();
 
     if(fade)
     {
@@ -483,6 +629,8 @@ uint8_t light_ctrl_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value, uint
         g_light_status.saturation = saturation;
     }
 
+    light_ctrl_unlock();
+
 #if W_DEBUG
     printf("light_ctrl_set_hsv()\n");
     light_state_debug_print();
@@ -514,57 +662,158 @@ uint8_t light_ctrl_get_hsv(uint16_t *hue, uint8_t *saturation, uint8_t *value)
         return 0;
     }
 
+    light_ctrl_lock();
+
     *hue        = g_light_status.hue;
     *saturation = g_light_status.saturation;
     *value      = g_light_status.value;
+
+    light_ctrl_unlock();
 
     return 0;
 }
 
 uint16_t light_ctrl_get_hue()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint16_t u16Value = 0;
+
+    light_ctrl_lock();
+
+    u16Value = g_light_status.hue;
+
+    light_ctrl_unlock();
+
+    return u16Value;
+#else
     return g_light_status.hue;
+#endif
 }
 
 uint8_t light_ctrl_get_saturation()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.saturation;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.saturation;
+#endif
 }
 
 uint8_t light_ctrl_get_value()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.value;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.value;
+#endif
 }
 
 uint8_t light_ctrl_get_mode()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.mode;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.mode;
+#endif
 }
 
 void light_ctrl_set_mode(uint8_t mode)
 {
+    light_ctrl_lock();
+
     g_light_status.mode = mode;
+
+    light_ctrl_unlock();
 }
 
-uint8_t light_ctrl_set_ctb(uint8_t brightness, uint8_t fade, uint8_t status_update)
+SHM_DATA uint8_t light_ctrl_set_ctb(uint32_t color_temperature, uint8_t brightness, uint8_t fade, uint8_t status_update)
 {
-    uint32_t brightness_255 = 0; 
+    uint8_t u8WarmLightEnabled = 0;
+    uint32_t brightness_255 = 0;
+    uint8_t warm_tmp = 0;
+    uint8_t cold_tmp = 0;
+
     if (brightness > 100)
     {
         L_CTRL_DBGMSG("brightness out of range\n",());
         return 0;
     }
 
-    if (brightness>0)
+    if (color_temperature < 2000 || color_temperature > 7000)
     {
-        brightness_255 = ((brightness*242)/100)+13;
+        L_CTRL_DBGMSG("color_temperature or brightness out of range\n",());
+        return 0;
     }
+
+    if((g_light_status.light_type == LT_CW) || 
+       (g_light_status.light_type == LT_RGBCW))
+    {
+        u8WarmLightEnabled = 1;
+    }
+
+    if(u8WarmLightEnabled)
+    {
+        uint8_t colortemp_percent = normalize_colortemperature(color_temperature);
+
+        #if 1
+        cold_tmp = colortemp_percent * brightness / 100;
+        warm_tmp = (100 - colortemp_percent) * brightness / 100;
+        #else
+        warm_tmp = colortemp_percent * brightness / 100;
+        cold_tmp = (100 - colortemp_percent) * brightness / 100;
+        #endif
+        
+        warm_tmp = warm_tmp < 15 ? warm_tmp : 14 + warm_tmp * 86 / 100;
+        cold_tmp = cold_tmp < 15 ? cold_tmp : 14 + cold_tmp * 86 / 100;
+    }
+    else
+    {
+        if (brightness>0)
+        {
+            brightness_255 = ((brightness*242)/100)+13;
+        }
+    }
+
+    light_ctrl_lock();
 			
     if (fade)
     {
         fade_timer_smart_init(CTB_FADE_PERIOD_MS, CTB_FADE_STEP_MS);
 
-        opl_light_fade_with_time_central_fade_ctrl(Cold_Light, brightness_255, 0);        //Control 4th way  (No matter Cold or Warm)
+        if(u8WarmLightEnabled)
+        {
+            opl_light_fade_with_time_central_fade_ctrl(Cold_Light, cold_tmp * 255 / 100, 0);
+    
+            opl_light_fade_with_time_central_fade_ctrl(Warm_Light, warm_tmp * 255 / 100, 0);
+        }
+        else
+        {
+            opl_light_fade_with_time_central_fade_ctrl(Cold_Light, brightness_255, 0);        //Control 4th way  (No matter Cold or Warm)
+        }
 
         //if (g_light_status.mode != MODE_CTB)
         {
@@ -579,7 +828,16 @@ uint8_t light_ctrl_set_ctb(uint8_t brightness, uint8_t fade, uint8_t status_upda
     }
     else
     {
-        opl_light_fade_with_time(Cold_Light, brightness_255, 0, 0, 0);        //Control 4th way  (No matter Cold or Warm)
+        if(u8WarmLightEnabled)
+        {
+            opl_light_fade_with_time(Cold_Light, cold_tmp * 255 / 100, 0, 0, 0);
+    
+            opl_light_fade_with_time(Warm_Light, warm_tmp * 255 / 100, 0, 0, 0);
+        }
+        else
+        {
+            opl_light_fade_with_time(Cold_Light, brightness_255, 0, 0, 0);        //Control 4th way  (No matter Cold or Warm)
+        }
 
         //if (g_light_status.mode != MODE_CTB)
         {
@@ -596,7 +854,10 @@ uint8_t light_ctrl_set_ctb(uint8_t brightness, uint8_t fade, uint8_t status_upda
         g_light_status.mode              = MODE_CTB;
         g_light_status.on                = SWITCH_ON;
         g_light_status.brightness        = brightness;
+        g_light_status.color_temperature = color_temperature;
     }
+
+    light_ctrl_unlock();
 
 #if W_DEBUG
     printf("light_ctrl_set_ctb()\n");
@@ -608,12 +869,12 @@ uint8_t light_ctrl_set_ctb(uint8_t brightness, uint8_t fade, uint8_t status_upda
 
 uint8_t light_ctrl_set_color_temperature(uint32_t color_temperature)
 {
-    return 0;
+    return light_ctrl_set_ctb(color_temperature, g_light_status.brightness, LIGHT_FADE_ON, UPDATE_LED_STATUS);
 }
 
 uint8_t light_ctrl_set_brightness(uint8_t brightness)
 {
-    return light_ctrl_set_ctb(brightness, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+    return light_ctrl_set_ctb(g_light_status.color_temperature, brightness, LIGHT_FADE_ON, UPDATE_LED_STATUS);
 }
 
 uint8_t light_ctrl_get_ctb(uint8_t *brightness)
@@ -624,28 +885,60 @@ uint8_t light_ctrl_get_ctb(uint8_t *brightness)
         return 0;
     }
 
+    light_ctrl_lock();
+
     *brightness        = g_light_status.brightness;
+
+    light_ctrl_unlock();
 
     return 0;
 }
 
 uint32_t light_ctrl_get_color_temperature()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint32_t u32Value = 0;
+
+    light_ctrl_lock();
+
+    u32Value = g_light_status.color_temperature;
+
+    light_ctrl_unlock();
+
+    return u32Value;
+#else
     return g_light_status.color_temperature;
+#endif
 }
 
 uint8_t light_ctrl_get_brightness()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint32_t u32Value = 0;
+
+    light_ctrl_lock();
+
+    u32Value = g_light_status.brightness;
+
+    light_ctrl_unlock();
+
+    return u32Value;
+#else
     return g_light_status.brightness;
+#endif
 }
 
 uint8_t light_ctrl_set_switch(uint8_t on)
 {
     //uint8_t workmode_tmp = 0;
+    uint32_t tmp_color_temperature = g_light_status.color_temperature;
+
     g_light_status.on = on;
 
     if (!g_light_status.on)
     {
+        light_ctrl_lock();
+
         fade_timer_smart_init(g_light_status.fade_period_ms, g_light_status.fade_step_ms);
 
         opl_light_fade_with_time_central_fade_ctrl(Red_Light, 0, 0);
@@ -656,7 +949,15 @@ uint8_t light_ctrl_set_switch(uint8_t on)
 
         opl_light_fade_with_time_central_fade_ctrl(Cold_Light, 0, 0);
 
+        if((g_light_status.light_type == LT_CW) || 
+           (g_light_status.light_type == LT_RGBCW))
+        {
+            opl_light_fade_with_time_central_fade_ctrl(Warm_Light, 0, 0);
+        }
+
         fade_timer_start();
+
+        light_ctrl_unlock();
     }
     else
     {
@@ -668,8 +969,27 @@ uint8_t light_ctrl_set_switch(uint8_t on)
                 break;
 
             case MODE_CTB:
-                g_light_status.brightness = (g_light_status.brightness) ? g_light_status.brightness : 100;
-                light_ctrl_set_ctb(g_light_status.brightness, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                if(light_ctrl_get_light_type() != LT_RGB)
+                {
+                    g_light_status.brightness = (g_light_status.brightness) ? g_light_status.brightness : 100;
+                    if (g_light_status.brightness == 1)
+                    {
+                        if(tmp_color_temperature > 4500)
+                        {
+                            light_ctrl_set_ctb(7000, 1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                        }
+                        else
+                        {
+                            light_ctrl_set_ctb(2000, 1, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                        }
+                        //g_light_status.color_temperature = tmp_color_temperature;
+                    }
+                    else
+                    {
+                        light_ctrl_set_ctb(g_light_status.color_temperature, g_light_status.brightness, LIGHT_FADE_ON, UPDATE_LED_STATUS);
+                    }
+                }
+
                 break;
 						
             case MODE_SCENES:
@@ -693,7 +1013,19 @@ uint8_t light_ctrl_set_switch(uint8_t on)
 
 uint8_t light_ctrl_get_switch()
 {
+#ifdef ADA_REMOTE_CTRL
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.on;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
     return g_light_status.on;
+#endif
 }
 
 #ifdef BLEWIFI_LIGHT_CTRL

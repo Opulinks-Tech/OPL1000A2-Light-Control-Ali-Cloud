@@ -284,6 +284,7 @@ void BleWifi_RFPowerSetting(uint8_t level)
 
     tCfg.u8HighPwrStatus = level;
     ret = sys_cfg_rf_init_patch(&tCfg);
-    printf("RF Power Settings is = %s \n", (ret == 0 ? "successful" : "false"));
+    (void)ret;
+    //printf("RF Power Settings is = %s \n", (ret == 0 ? "successful" : "false"));
 }
 

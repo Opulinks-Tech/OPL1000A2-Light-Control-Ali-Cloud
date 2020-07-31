@@ -13,22 +13,22 @@ extern "C"
 {
 #endif
 
-#define ALI_EXT_MAX_TLV_01_RSP_LEN 26
+#define BZ_EXT_MAX_TLV_01_RSP_LEN       26
 
-#define ALI_EXT_TX_BUFF_LEN 255 /**< Tx buffer size. */
+#define BZ_EXT_TX_BUFF_LEN              255 /**< Tx buffer size. */
 
 typedef struct extcmd_s {
     tx_func_t tx_func;
-    uint8_t tlv_01_rsp[ALI_EXT_MAX_TLV_01_RSP_LEN];
+    uint8_t tlv_01_rsp[BZ_EXT_MAX_TLV_01_RSP_LEN];
     uint8_t tlv_01_rsp_len;
     uint32_t model_id;
     uint8_t*p_product_key;
     uint8_t product_key_len;
-    uint8_t *p_secret;
-    uint8_t secret_len;
+    uint8_t *p_device_secret;
+    uint8_t device_secret_len;
     uint8_t *p_device_name;
     uint8_t device_name_len;
-    uint8_t tx_buff[ALI_EXT_TX_BUFF_LEN];
+    uint8_t tx_buff[BZ_EXT_TX_BUFF_LEN];
 } extcmd_t;
 
 ret_code_t extcmd_init(ali_init_t const *p_init, tx_func_t tx_func);

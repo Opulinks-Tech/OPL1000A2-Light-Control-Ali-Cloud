@@ -1,3 +1,5 @@
+#include "infra_compat.h"
+
 int awss_report_cloud(void);
 
 /**
@@ -8,7 +10,7 @@ int awss_report_cloud(void);
  ** @note
  **      check reset flag in perisistent storage, if device failed to report reset message last time, retry it.
  **/
-int awss_check_reset(void);
+int awss_check_reset(iotx_vendor_dev_reset_type_t *reset_type);
 
 /**
  ** @brief   report reset to cloud.
@@ -19,7 +21,7 @@ int awss_check_reset(void);
  **      device will save reset flag if device dosen't connect cloud, device will fails to send reset to cloud.
  **      when connection between device and cloud is ready, device will retry to report reset to cloud.
  **/
-int awss_report_reset(void);
+int awss_report_reset(iotx_vendor_dev_reset_type_t *reset_type);
 
 /**
  ** @brief   stop to report reset to cloud.

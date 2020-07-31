@@ -80,12 +80,23 @@ typedef unsigned char uint8_t;
 
 #define ALI_SINGLE_TASK
 #define ALI_TASK_POLLING_PERIOD     (10) // ms
+
+#define COAP_ENABLE
 #define ALI_RHYTHM_SUPPORT
+
+#ifdef ALI_RHYTHM_SUPPORT
+#ifndef COAP_ENABLE
+#error "No Enable CoAP"
+#endif
+#endif
+
 #define ALI_APP_TOKEN_BACKUP
 #define ALI_KEEPALIVE_INTERVAL      (10000) // ms
 
+#define ALI_REPORT_TOKEN_AFTER_UNBIND
+
 #ifdef WORLDWIDE_USE
-#define ALI_UNBIND_REFINE
+//#define ALI_UNBIND_REFINE
 #endif
 
 #ifdef SUPPORT_TLS

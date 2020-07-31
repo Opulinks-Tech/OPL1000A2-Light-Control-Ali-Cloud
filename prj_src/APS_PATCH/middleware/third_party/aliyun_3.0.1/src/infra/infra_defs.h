@@ -308,14 +308,35 @@ typedef struct {
     uint16_t port;
 } iotx_region_item_t;
 
+#define IOTX_CLOUD_REGION_INVALID (-100)
+
 typedef enum {
-    IOTX_CLOUD_REGION_SHANGHAI,   /* Shanghai */
-    IOTX_CLOUD_REGION_SINGAPORE,  /* Singapore */
-    IOTX_CLOUD_REGION_JAPAN,      /* Japan */
-    IOTX_CLOUD_REGION_USA_WEST,   /* America */
-    IOTX_CLOUD_REGION_GERMANY,    /* Germany */
-    IOTX_CLOUD_REGION_CUSTOM,     /* Custom setting */
-    IOTX_CLOUD_DOMAIN_MAX         /* Maximum number of domain */
+    /* Shanghai */
+    IOTX_CLOUD_REGION_SHANGHAI,
+
+    /* Singapore */
+    IOTX_CLOUD_REGION_SINGAPORE,
+
+    /* Japan */
+    IOTX_CLOUD_REGION_JAPAN,
+
+    /* America east*/
+    IOTX_CLOUD_REGION_USA_EAST,
+
+    /* Germany */
+    IOTX_CLOUD_REGION_GERMANY,
+
+    /* America west*/
+    IOTX_CLOUD_REGION_USA_WEST,
+
+    /*Define the valid maximum region id is 19999*/
+    IOTX_CLOUD_REGION_MAX = 19999,
+
+    /* Custom setting */
+    IOTX_CLOUD_REGION_CUSTOM = 20000,
+
+    /* Maximum number of custom region */
+    IOTX_CLOUD_CUSTOM_REGION_MAX
 } iotx_mqtt_region_types_t;
 
 #define IOTX_MQTT_DOMAIN_NUMBER (6)

@@ -30,6 +30,7 @@
 #include "mw_fim_default_group03_patch.h"
 #include "mw_fim_default_group11_project.h"
 #include "mw_fim_default_group14_project.h"
+#include "mw_fim_default_group17_project.h"
 #include "app_at_cmd.h"
 #include "wifi_api.h"
 
@@ -41,6 +42,12 @@
 #include "mw_ota.h"
 #include "ali_linkkitsdk_decl.h"
 
+#ifdef ADA_REMOTE_CTRL
+#include "ada_ucmd_parser.h"
+#include "ada_uart_transport.h"
+#include "uart_cmd_task.h"
+#endif
+
 #ifdef ALI_BLE_WIFI_PROVISION
 #include "cmsis_os.h"
 #include "lwip/netdb.h"
@@ -51,6 +58,7 @@
 #include "infra_defs.h"
 #include "ali_hal_decl.h"
 #include "infra_compat.h"
+
 
 #define hal_emerg(...)      HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
 #define hal_crit(...)       HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
@@ -77,6 +85,8 @@ blewifi_ota_t *gTheOta = 0;
 extern T_MwFim_GP14_Boot_Status g_tBootStatus;
 #endif
 
+extern T_MwFim_GP17_AliyunInfo g_tAliyunInfo;
+
 //ada mp light control
 uint8_t g_led_mp_mode_flag = 0;  //1:mp mode, 0:normal
 uint32_t g_led_mp_cnt = 0;
@@ -91,9 +101,23 @@ static void ada_led_mp_timer_callback(void const *argu)
     {
         osTimerStop(g_tAdaLedMPBlinkId);
     }
-    if (g_led_mp_cnt < 600)    //light up R->G->B->C
+    if (g_led_mp_cnt < 600)    //light up R->G->B(->C)(->W)
     {
-        uint8_t rgbcw_indicator = g_led_mp_cnt % 4;
+        uint8_t rgbcw_indicator = 0;
+
+        if(light_ctrl_get_light_type() == LT_RGB)
+        {
+            rgbcw_indicator = g_led_mp_cnt % 3;
+        }
+        else if(light_ctrl_get_light_type() == LT_RGBCW)
+        {
+            rgbcw_indicator = g_led_mp_cnt % 5;
+        }
+        else
+        {
+            rgbcw_indicator = g_led_mp_cnt % 4;
+        }
+        
         switch (rgbcw_indicator)
         {
             case 0:    //RED
@@ -105,9 +129,27 @@ static void ada_led_mp_timer_callback(void const *argu)
             case 2:    //BLUE
                 light_ctrl_set_hsv(240 ,100 ,100 , LIGHT_FADE_OFF, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
                 break;
+
             case 3:    //COLD (e.g. W : WRITE)
-                light_ctrl_set_ctb(100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+                if(light_ctrl_get_light_type() != LT_RGB)
+                {
+                    light_ctrl_set_ctb(7000, 100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+                }
+                
                 break;
+
+            case 4:    //WARM
+                //if(light_ctrl_get_light_type() != LT_RGB)
+                {
+                    if((light_ctrl_get_light_type() == LT_CW) || 
+                       ((light_ctrl_get_light_type() == LT_RGBCW)))
+                    {
+                        light_ctrl_set_ctb(2000, 100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+                    }
+                }
+                
+                break;
+            
             default:
                 LEDC_DEBUG("[MP]rgbcw_indicator wrong!\n",());
                 break;
@@ -120,18 +162,44 @@ static void ada_led_mp_timer_callback(void const *argu)
     }
     else if (g_led_mp_cnt == 3000)
     {
-        //turn on Cold
-        light_ctrl_set_ctb(100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+        if(light_ctrl_get_light_type() != LT_RGB)
+        {
+            //turn on Cold
+            light_ctrl_set_ctb(7000, 100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+        }
     }
-    else if (g_led_mp_cnt == 5400)
+    else if (g_led_mp_cnt == 5400)  // 45 minutes
     {
-        //turn on Red 10%
-        light_ctrl_set_hsv(0 ,100 ,10 , LIGHT_FADE_OFF, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
-        g_led_mp_mode_flag = 0;
-        g_led_mp_cnt = 0;
-        //Stop timer
-        osTimerStop(g_tAdaLedMPBlinkId);
+        if((light_ctrl_get_light_type() == LT_CW) || 
+           ((light_ctrl_get_light_type() == LT_RGBCW)))
+        {
+            //turn on Warm
+            light_ctrl_set_ctb(2000, 100, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+        }
+        else
+        {
+            //turn on Red 10%
+            light_ctrl_set_hsv(0 ,100 ,10 , LIGHT_FADE_OFF, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
+            g_led_mp_mode_flag = 0;
+            g_led_mp_cnt = 0;
+            //Stop timer
+            osTimerStop(g_tAdaLedMPBlinkId);
+        }
     }
+    else if (g_led_mp_cnt == 7800)  // 65 minutes
+    {
+        if((light_ctrl_get_light_type() == LT_CW) || 
+           ((light_ctrl_get_light_type() == LT_RGBCW)))
+        {
+            //turn on Red 10%
+            light_ctrl_set_hsv(0 ,100 ,10 , LIGHT_FADE_OFF, UPDATE_LED_STATUS, NO_RGB_LIGHTEN_REQ);
+            g_led_mp_mode_flag = 0;
+            g_led_mp_cnt = 0;
+            //Stop timer
+            osTimerStop(g_tAdaLedMPBlinkId);
+        }
+    }
+
     g_led_mp_cnt++;
 }
 
@@ -194,8 +262,15 @@ void light_type_discern(void)
     if(Hal_Vic_GpioInput(GPIO_IDX_11))
         lighttype = lighttype | 1;
 
+#ifdef BLEWIFI_RGB_LED
+    lighttype = TMP_LT_RGB;
+#elif defined BLEWIFI_RGBCW_LED
+    lighttype = TMP_LT_RGBCW;
+#else
     lighttype = TMP_LT_RGBC;
-    light_ctrl_set_ctb(0, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
+#endif
+
+    light_ctrl_set_ctb(0, 0, LIGHT_FADE_OFF, UPDATE_LED_STATUS);
 		
     switch(lighttype)
     {
@@ -381,6 +456,26 @@ SHM_DATA void BleWifiAppInit(void)
 
         // init device schedule
         BleWifi_Ctrl_DevSchedInit();
+
+    #if 1
+        if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_INFO, 0, MW_FIM_GP17_ALIYUN_INFO_SIZE, (uint8_t*)&g_tAliyunInfo) != MW_FIM_OK)
+        {
+            // if fail, get the default value
+            memcpy(&g_tAliyunInfo, &g_tMwFimDefaultGp17AliyunInfo, MW_FIM_GP17_ALIYUN_INFO_SIZE);
+        }
+        printf("\nFIM_RegionID:%d\n", g_tAliyunInfo.ulRegionID);
+        iotx_guider_set_dynamic_region(g_tAliyunInfo.ulRegionID);
+    #else
+        T_MwFim_GP17_AliyunInfo AliyunInfo;
+        
+        if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_INFO, 0, MW_FIM_GP17_ALIYUN_INFO_SIZE, (uint8_t*)&AliyunInfo) != MW_FIM_OK)
+        {
+            // if fail, get the default value
+            memcpy(&AliyunInfo, &g_tMwFimDefaultGp17AliyunInfo, MW_FIM_GP17_ALIYUN_INFO_SIZE);
+        }
+        printf("\nRegion ID from FIM:%d\n", AliyunInfo.ulRegionID);
+        iotx_guider_set_dynamic_region(AliyunInfo.ulRegionID);
+    #endif
     }
 
     // update the system mode
@@ -388,6 +483,11 @@ SHM_DATA void BleWifiAppInit(void)
 
     // add app cmd
     app_at_cmd_add();
+
+    #ifdef ADA_REMOTE_CTRL
+    uart_cmd_init(UART_NUM_0, 9600, ada_ctrl_uart_input_impl);
+    uart_cmd_handler_register(uart_cmd_process, NULL);
+    #endif
 
     //light pwm init
     light_type_discern();

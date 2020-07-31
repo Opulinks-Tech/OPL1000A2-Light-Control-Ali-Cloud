@@ -34,6 +34,7 @@
 #include "mw_ota_def.h"
 #include "mw_ota.h"
 #include "hal_system.h"
+#include "infra_compat.h"
 #define __DEMO__
 
 #define PRODUCT_KEY_LEN     (20)
@@ -202,7 +203,8 @@ int HAL_GetDeviceSecret(_OU_ char *device_secret)
     memset(device_secret, 0x0, DEVICE_SECRET_LEN);
 
 #ifdef __DEMO__
-    strncpy(device_secret, _device_secret, len);
+//    strncpy(device_secret, _device_secret, len);
+    memcpy(device_secret, _device_secret, len);
 #endif
 
     return len;
@@ -859,7 +861,7 @@ void HAL_Firmware_Persistence_Start(void) {
 }
 
 
-int HAL_Firmware_Persistence_Write(_IN_ char *buffer, _IN_ uint32_t length)
+SHM_DATA int HAL_Firmware_Persistence_Write(_IN_ char *buffer, _IN_ uint32_t length)
 {
     int iRet = -1;
     T_MwOtaFlashHeader *ota_hdr = NULL;
@@ -1088,11 +1090,11 @@ void Ali_Netlink_Awss_Process_Get_Devinfo(uint32_t evt_type, void *data, int len
 		awss_process_get_devinfo();
 
 }
-extern int awss_report_reset_to_cloud(void);	
+extern int awss_report_reset_to_cloud(iotx_vendor_dev_reset_type_t *reset_type);	
 void Ali_Netlink_Awss_Report_Reset_To_Cloud(uint32_t evt_type, void *data, int len)
 {
 //    printf("Enter Ali_Netlink_Awss_Report_Reset_To_Cloud\r\n");
-	awss_report_reset_to_cloud();
+	awss_report_reset_to_cloud((iotx_vendor_dev_reset_type_t*)(data));
 }
 
 void ali_netlink_TaskEvtHandler(uint32_t evt_type, void *data, int len)
@@ -1351,11 +1353,17 @@ void HAL_ResetAliBindflag()
 
 int HAL_GetDeviceID(_OU_ char *device_id)
 {
+    char pk[PRODUCT_KEY_LEN+1];
+    char dn[DEVICE_NAME_LEN+1];
+
     memset(device_id, 0x0, DEVICE_ID_LEN);
-#ifdef __DEMO__
-    HAL_Snprintf(device_id, DEVICE_ID_LEN, "%s.%s", _product_key, _device_name);
-    device_id[DEVICE_ID_LEN - 1] = '\0';
-#endif
+    memset(pk, 0x0, PRODUCT_KEY_LEN+1);
+    memset(dn, 0x0, DEVICE_NAME_LEN+1);
+
+    HAL_GetProductKey(pk);
+    HAL_GetDeviceName(dn);
+
+    HAL_Snprintf(device_id, DEVICE_ID_LEN, "%s.%s", pk, dn);
 
     return strlen(device_id);
 }

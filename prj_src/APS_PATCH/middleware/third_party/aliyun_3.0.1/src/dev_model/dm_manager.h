@@ -134,4 +134,6 @@ int dm_mgr_deprecated_assemble_service_output(_IN_ int devid, _IN_ char *identif
 int dm_mgr_deprecated_upstream_thing_service_response(_IN_ int devid, _IN_ int msgid, _IN_ iotx_dm_error_code_t code,
         _IN_ char *identifier, _IN_ int identifier_len, _IN_ char *payload, _IN_ int payload_len);
 #endif
+int dm_mgr_upstream_thing_event_notify_reply(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len);
+
 #endif

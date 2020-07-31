@@ -3,8 +3,9 @@
  */
 
 #include <stdlib.h>
+#include "infra_config.h"
 
-const char *iotx_ca_crt = \
+SHM_DATA const char *iotx_ca_crt = \
 {
     \
     "-----BEGIN CERTIFICATE-----\r\n"
@@ -29,3 +30,11 @@ const char *iotx_ca_crt = \
     "HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==\r\n" \
     "-----END CERTIFICATE-----"
 };
+const char *iotx_ca_get(void)
+{
+#ifdef SUPPORT_TLS
+    return iotx_ca_crt;
+#else
+    return NULL;
+#endif
+}

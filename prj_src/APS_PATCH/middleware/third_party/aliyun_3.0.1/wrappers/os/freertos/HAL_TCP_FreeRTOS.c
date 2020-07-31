@@ -54,7 +54,7 @@ static uint64_t _platform_time_left(uint64_t t_end, uint64_t t_now)
     return t_left;
 }
 
-uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
+SHM_DATA uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
 {
     struct addrinfo hints;
     struct addrinfo *addrInfoList = NULL;

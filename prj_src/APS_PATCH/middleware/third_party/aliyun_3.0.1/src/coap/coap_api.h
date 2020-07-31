@@ -70,7 +70,7 @@ typedef struct {
 typedef struct {
     char        product_key[IOTX_PRODUCT_KEY_LEN + 1];
     char        device_name[IOTX_DEVICE_NAME_LEN + 1];
-    char        device_id[IOTX_PRODUCT_KEY_LEN + IOTX_DEVICE_NAME_LEN + 2];
+    char        device_id[IOTX_DEVICE_ID_LEN+1];
     char        device_secret[IOTX_DEVICE_SECRET_LEN + 1];
     char        module_vendor_id[IOTX_PARTNER_ID_LEN + 1];
 } iotx_device_info_t;

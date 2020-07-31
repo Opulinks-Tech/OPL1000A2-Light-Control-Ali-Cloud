@@ -2,6 +2,7 @@
  * Copyright (C) 2015-2018 Alibaba Group Holding Limited
  */
 
+#include <string.h>
 #include "breeze_hal_ble.h"
 #include "ble_service.h"
 #include "common.h"
@@ -13,7 +14,10 @@ ble_ais_t g_ais;
 static void service_enabled(void)
 {
     if (g_ais.is_indication_enabled && g_ais.is_notification_enabled) {
-        BREEZE_LOG_INFO("Let's notify that service is enabled.\r\n");
+        BREEZE_DEBUG("Let's notify that service is enabled");
+#ifdef EN_LONG_MTU
+        trans_update_mtu();
+#endif
 #if BZ_ENABLE_AUTH
         auth_service_enabled();
 #endif
@@ -29,7 +33,7 @@ static void connected()
 #if BZ_ENABLE_AUTH
     auth_connected();
 #endif
-    event_notify(BZ_EVENT_CONNECTED, NULL, 0);
+    core_event_notify(BZ_EVENT_CONNECTED, NULL, 0);
 }
 
 static void disconnected()
@@ -37,7 +41,7 @@ static void disconnected()
     g_ais.conn_handle = BLE_CONN_HANDLE_INVALID;
     g_ais.is_indication_enabled = false;
     g_ais.is_notification_enabled = false;
-    event_notify(BZ_EVENT_DISCONNECTED, NULL, 0);
+    core_event_notify(BZ_EVENT_DISCONNECTED, NULL, 0);
 }
 
 static void ic_ccc_handler(ais_ccc_value_t val)
@@ -138,11 +142,15 @@ uint32_t ble_ais_send_notification(uint8_t *p_data, uint16_t length)
     }
 }
 
+extern transport_t g_transport;
 static void send_indication_done(uint8_t res)
 {
+    os_mutex_lock(&(g_transport.tx.mutex_indicate_done), 1000);
+    BREEZE_VERBOSE("sending ind done %d", res);
     if (res == BZ_SUCCESS) {
         transport_txdone(1);
     }
+    os_mutex_unlock(&(g_transport.tx.mutex_indicate_done));
 }
 
 uint32_t ble_ais_send_indication(uint8_t *p_data, uint16_t length)
@@ -158,6 +166,8 @@ uint32_t ble_ais_send_indication(uint8_t *p_data, uint16_t length)
         return BZ_EDATASIZE;
     }
     err = ble_send_indication(p_data, length, send_indication_done);
+    BREEZE_VERBOSE("sending ind:");
+    hex_byte_dump_verbose(p_data, length, 24);
 
     if (err) {
         return BZ_EGATTINDICATE;

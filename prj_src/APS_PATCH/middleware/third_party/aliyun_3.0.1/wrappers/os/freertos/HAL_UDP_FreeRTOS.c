@@ -409,7 +409,7 @@ int HAL_UDP_send(intptr_t sockfd,
 
 }
 
-int HAL_UDP_sendto(intptr_t sockfd,
+SHM_DATA int HAL_UDP_sendto(intptr_t sockfd,
                    const NetworkAddr *p_remote,
                    const unsigned char *p_data,
                    unsigned int datalen,

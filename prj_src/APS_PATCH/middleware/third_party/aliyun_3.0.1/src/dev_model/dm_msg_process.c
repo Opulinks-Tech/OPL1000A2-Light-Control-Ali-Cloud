@@ -61,6 +61,9 @@ const char DM_URI_THING_MODEL_UP_RAW_REPLY[]          DM_READ_ONLY = "thing/mode
     const char DM_URI_NTP_RESPONSE[]                      DM_READ_ONLY = "response";
 #endif
 
+const char DM_URI_THING_EVENT_NOTIFY[]                DM_READ_ONLY = "_thing/event/notify";
+const char DM_URI_THING_EVENT_NOTIFY_REPLY[]          DM_READ_ONLY = "_thing/event/notify_reply";  
+
 const char DM_URI_DEV_CORE_SERVICE_DEV[]              DM_READ_ONLY = "/dev/core/service/dev";
 
 #ifdef DEVICE_MODEL_GATEWAY
@@ -445,6 +448,48 @@ int dm_msg_proc_thing_deviceinfo_delete_reply(_IN_ dm_msg_source_t *source)
 
     /* Remove Message From Cache */
 #if !defined(DM_MESSAGE_CACHE_DISABLED)
+    memcpy(int_id, response.id.value, response.id.value_length);
+    dm_msg_cache_remove(atoi(int_id));
+#endif
+    return SUCCESS_RETURN;
+}
+
+int dm_msg_proc_thing_event_notify_reply(_IN_ dm_msg_source_t *source)
+{
+    int res = 0, eventid_start_pos = 0, eventid_end_pos = 0;
+    dm_msg_response_payload_t response;
+
+    res = dm_utils_memtok((char *)source->uri, strlen(source->uri), DM_URI_SERVICE_DELIMITER, 6 + DM_URI_OFFSET,
+                          &eventid_start_pos);
+    if (res != SUCCESS_RETURN) {
+        return FAIL_RETURN;
+    }
+
+    res = dm_utils_memtok((char *)source->uri, strlen(source->uri), DM_URI_SERVICE_DELIMITER, 7 + DM_URI_OFFSET,
+                          &eventid_end_pos);
+    if (res != SUCCESS_RETURN) {
+        return FAIL_RETURN;
+    }
+    dm_log_info("Event Id: %.*s", eventid_end_pos - eventid_start_pos - 1, source->uri + eventid_start_pos + 1);
+
+    /* Response */
+    res = dm_msg_response_parse((char *)source->payload, source->payload_len, &response);
+    if (res != SUCCESS_RETURN) {
+        return FAIL_RETURN;
+    }
+
+    /* Operation */
+    // if ((strlen("property") == eventid_end_pos - eventid_start_pos - 1) &&
+    //     (memcmp("property", source->uri + eventid_start_pos + 1, eventid_end_pos - eventid_start_pos - 1) == 0)) {
+        dm_msg_thing_event_notify_reply(&response);
+    // } else {
+    //     dm_msg_thing_event_post_reply((char *)source->uri + eventid_start_pos + 1, eventid_end_pos - eventid_start_pos - 1,
+    //                                   &response);
+    // }
+
+    /* Remove Message From Cache */
+#if !defined(DM_MESSAGE_CACHE_DISABLED)
+    char int_id[DM_UTILS_UINT32_STRLEN] = {0};
     memcpy(int_id, response.id.value, response.id.value_length);
     dm_msg_cache_remove(atoi(int_id));
 #endif

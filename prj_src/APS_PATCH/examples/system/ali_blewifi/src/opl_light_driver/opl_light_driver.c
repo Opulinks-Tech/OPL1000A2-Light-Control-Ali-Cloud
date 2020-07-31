@@ -23,6 +23,8 @@
 #include "hal_pwm.h"
 #include "infra_config.h"
 
+#define USER_LIGHT_FILCKER_HZ       LIGHT_FLICKER_4K_HZ
+
 typedef struct
 {
     uint32_t fade_step_period_ms;
@@ -71,6 +73,44 @@ void light_drv_tmr_init(void)
 }
 #endif
 
+static void Hal_Pwm_ComplexConfigSetWrapForFlicker(uint8_t ubIdxMask, S_Hal_Pwm_Config_t *tConfig)
+{
+    S_Hal_Pwm_Config_t pwm_cfg;
+
+    if (tConfig->ulDutyBright == 255)
+    {
+        pwm_cfg.ulPeriod     = 255;
+        pwm_cfg.ulDutyBright = 255;
+        pwm_cfg.ulDutyDull   = 255;
+        pwm_cfg.ulRampUp     = 255;
+        pwm_cfg.ulRampDown   = 255;
+        pwm_cfg.ulHoldBright = 1;
+        pwm_cfg.ulHoldDull   = 1;
+    }
+    else if (tConfig->ulDutyBright == 0)
+    {
+        pwm_cfg.ulPeriod     = 255;
+        pwm_cfg.ulDutyBright = 0;
+        pwm_cfg.ulDutyDull   = 0;
+        pwm_cfg.ulRampUp     = 255;
+        pwm_cfg.ulRampDown   = 255;
+        pwm_cfg.ulHoldBright = 1;
+        pwm_cfg.ulHoldDull   = 1;
+    }
+    else
+    {
+        pwm_cfg.ulPeriod     = USER_LIGHT_FILCKER_HZ;
+        pwm_cfg.ulDutyBright = USER_LIGHT_FILCKER_HZ;
+        pwm_cfg.ulDutyDull   = 0;
+        pwm_cfg.ulRampUp     = USER_LIGHT_FILCKER_HZ;
+        pwm_cfg.ulRampDown   = USER_LIGHT_FILCKER_HZ;
+        pwm_cfg.ulHoldBright = tConfig->ulDutyBright;
+        pwm_cfg.ulHoldDull   = 255 - tConfig->ulDutyBright;
+    }
+
+    Hal_Pwm_ComplexConfigSet(ubIdxMask, pwm_cfg);
+}
+
 void cancel_default_breath(void)
 {
         g_pwm_cconfig[Red_Light].ulPeriod = 255;
@@ -113,11 +153,11 @@ void cancel_default_breath(void)
         g_pwm_cconfig[Warm_Light].ulHoldDull = 1;
         g_pwm_cconfig[Warm_Light].ulHoldBright = 1;	
 
-        Hal_Pwm_ComplexConfigSet(1 << Cold_Light, g_pwm_cconfig[Cold_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Warm_Light, g_pwm_cconfig[Warm_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Red_Light,  g_pwm_cconfig[Red_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Green_Light,g_pwm_cconfig[Green_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Blue_Light, g_pwm_cconfig[Blue_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Cold_Light, &g_pwm_cconfig[Cold_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Warm_Light, &g_pwm_cconfig[Warm_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Red_Light,  &g_pwm_cconfig[Red_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Green_Light,&g_pwm_cconfig[Green_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Blue_Light, &g_pwm_cconfig[Blue_Light]);
 
         g_pwm_cconfig[0].ulPeriod = 255;
         g_pwm_cconfig[0].ulDutyBright = 0;
@@ -241,11 +281,11 @@ void fade_step_exe_callback(uint32_t u32TmrIdx)
         }
     }
 
-        Hal_Pwm_ComplexConfigSet(1 << Red_Light, g_pwm_cconfig[Red_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Green_Light, g_pwm_cconfig[Green_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Blue_Light, g_pwm_cconfig[Blue_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Cold_Light, g_pwm_cconfig[Cold_Light]);
-        Hal_Pwm_ComplexConfigSet(1 << Warm_Light, g_pwm_cconfig[Warm_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Red_Light, &g_pwm_cconfig[Red_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Green_Light, &g_pwm_cconfig[Green_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Blue_Light, &g_pwm_cconfig[Blue_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Cold_Light, &g_pwm_cconfig[Cold_Light]);
+        Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << Warm_Light, &g_pwm_cconfig[Warm_Light]);
 
     g_fadetiming_ctrl.fade_step_count--;
     if (g_fadetiming_ctrl.fade_step_count == 0)
@@ -315,7 +355,7 @@ uint8_t opl_light_duty_set(uint8_t rgbcw_sel, uint8_t duty_ticks, uint8_t invert
     g_pwm_cconfig[rgbcw_sel].ulHoldBright = 1;
     g_pwm_cconfig[rgbcw_sel].ulHoldDull = 1;
 
-    Hal_Pwm_ComplexConfigSet(1 << rgbcw_sel, g_pwm_cconfig[rgbcw_sel]);
+    Hal_Pwm_ComplexConfigSetWrapForFlicker(1 << rgbcw_sel, &g_pwm_cconfig[rgbcw_sel]);
 
     return 0;
 }

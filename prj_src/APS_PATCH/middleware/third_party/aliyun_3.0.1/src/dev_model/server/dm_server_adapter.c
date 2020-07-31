@@ -10,7 +10,7 @@ SHM_DATA static dm_server_ctx_t *dm_server_get_ctx(void)
     return &g_dm_server_ctx;
 }
 
-SHM_DATA int dm_server_open(void)
+int dm_server_open(void)
 {
     dm_server_ctx_t *ctx = dm_server_get_ctx();
     iotx_alcs_param_t alcs_param;

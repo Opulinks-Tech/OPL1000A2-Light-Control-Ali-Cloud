@@ -507,6 +507,22 @@ int iotx_dm_deviceinfo_delete(_IN_ int devid, _IN_ char *payload, _IN_ int paylo
     return res;
 }
 
+int iotx_dm_event_notify_reply(_IN_ int devid, _IN_ char *payload, _IN_ int payload_len)
+{
+    int res = 0;
+
+    _dm_api_lock();
+
+    res = dm_mgr_upstream_thing_event_notify_reply(devid, payload, payload_len);
+    if (res < SUCCESS_RETURN) {
+        _dm_api_unlock();
+        return FAIL_RETURN;
+    }
+
+    _dm_api_unlock();
+    return res;
+}
+
 int iotx_dm_qurey_ntp(void)
 {
     int res = 0;

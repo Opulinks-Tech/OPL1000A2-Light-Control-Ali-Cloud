@@ -34,6 +34,7 @@
 
 #ifdef BLEWIFI_REFINE_INIT_FLOW
 #define BLEWIFI_CTRL_BLEADVSTOP_TIME    (120000)  // ms
+#define BLEWIFI_CTRL_BLEDISC_TIME       (10000)  // ms
 #else
 #define BLEWIFI_CTRL_BLEADVSTOP_TIME    (180000)  // ms
 #endif
@@ -213,7 +214,7 @@ int BleWifi_Ctrl_DevSchedSetAll(T_BleWifi_Ctrl_DevSchedAll *ptSchedAll);
 void BleWifi_Ctrl_DevSchedInit(void);
 
 void BleWifi_Ctrl_NetworkingStart(void);
-void BleWifi_Ctrl_NetworkingStop(void);
+void BleWifi_Ctrl_NetworkingStop(uint8_t u8RestartBleAdvTimer);
 
 void BleWifi_Ctrl_BootCntUpdate(void);
 
