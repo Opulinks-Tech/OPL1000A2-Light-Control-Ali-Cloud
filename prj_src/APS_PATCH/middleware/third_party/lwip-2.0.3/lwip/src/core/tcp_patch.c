@@ -101,6 +101,7 @@ extern u8_t tcp_timer_ctr;
 
 extern err_t unlock_netconn_state(void *arg, struct tcp_pcb *pcb);
 
+#if 0 // unused when #undef LWIP_DEBUG
 static const char * const tcp_state_str[] = {
   "CLOSED",
   "LISTEN",
@@ -114,6 +115,7 @@ static const char * const tcp_state_str[] = {
   "LAST_ACK",
   "TIME_WAIT"
 };
+#endif
 
 /**
  * Called every 500 ms and implements the retransmission timer and the timer that

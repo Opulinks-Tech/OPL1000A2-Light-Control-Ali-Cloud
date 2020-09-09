@@ -80,12 +80,8 @@ extern void linkkit_event_monitor(int event);
 blewifi_ota_t *gTheOta = 0;
 //extern uint8_t g_light_reboot_flag;
 
-#ifdef BLEWIFI_REFINE_INIT_FLOW
-#else
-extern T_MwFim_GP14_Boot_Status g_tBootStatus;
-#endif
-
 extern T_MwFim_GP17_AliyunInfo g_tAliyunInfo;
+extern T_MwFim_GP17_AliyunMqttCfg g_tAliyunMqttCfg;
 
 //ada mp light control
 uint8_t g_led_mp_mode_flag = 0;  //1:mp mode, 0:normal
@@ -312,19 +308,10 @@ void light_type_discern(void)
     Hal_Pin_ConfigSet(10, PIN_TYPE_NONE, PIN_DRIVING_LOW);
     Hal_Pin_ConfigSet(11, PIN_TYPE_NONE, PIN_DRIVING_LOW);
 
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
-    #else
-    if (g_tBootStatus.u8Cnt < BLEWIFI_CTRL_BOOT_CNT_FOR_ALI_RESET)
-    #endif
+    if(iot_apply_cfg(1))
     {
-        if(iot_apply_cfg(1))
-        {
-            // apply default configuration
-
-            #ifdef BLEWIFI_REFINE_INIT_FLOW
-            g_led_mp_mode_flag = 1;
-            #endif
-        }
+        // apply default configuration
+        g_led_mp_mode_flag = 1;
     }
 
     //g_light_reboot_flag = 1;
@@ -376,11 +363,6 @@ SHM_DATA void BleWifiAppInit(void)
 
     gTheOta = 0;
 
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
-    #else
-    uint8_t ap_num;
-    #endif
-	
 //#if (SNTP_FUNCTION_EN == 1)
     g_ulSntpSecondInit = 0;                 // Initialize the Sntp Value
     g_ulSystemSecondInit = 0;               // Initialize System Clock Time
@@ -403,12 +385,6 @@ SHM_DATA void BleWifiAppInit(void)
     // only for the user mode
     if ((tSysMode.ubSysMode == MW_FIM_SYS_MODE_INIT) || (tSysMode.ubSysMode == MW_FIM_SYS_MODE_USER))
     {
-        #ifdef BLEWIFI_REFINE_INIT_FLOW
-        #else
-        /* Update Boot Counter */
-        BleWifi_Ctrl_BootCntUpdate();
-        #endif
-
         /* Wi-Fi Initialization */
         BleWifi_Wifi_Init();
 
@@ -457,25 +433,35 @@ SHM_DATA void BleWifiAppInit(void)
         // init device schedule
         BleWifi_Ctrl_DevSchedInit();
 
-    #if 1
         if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_INFO, 0, MW_FIM_GP17_ALIYUN_INFO_SIZE, (uint8_t*)&g_tAliyunInfo) != MW_FIM_OK)
         {
             // if fail, get the default value
             memcpy(&g_tAliyunInfo, &g_tMwFimDefaultGp17AliyunInfo, MW_FIM_GP17_ALIYUN_INFO_SIZE);
         }
         printf("\nFIM_RegionID:%d\n", g_tAliyunInfo.ulRegionID);
-        iotx_guider_set_dynamic_region(g_tAliyunInfo.ulRegionID);
-    #else
-        T_MwFim_GP17_AliyunInfo AliyunInfo;
-        
-        if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_INFO, 0, MW_FIM_GP17_ALIYUN_INFO_SIZE, (uint8_t*)&AliyunInfo) != MW_FIM_OK)
+
+        #if 1
+        if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_MQTT_CFG, 0, MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE, (uint8_t*)&g_tAliyunMqttCfg) != MW_FIM_OK)
         {
             // if fail, get the default value
-            memcpy(&AliyunInfo, &g_tMwFimDefaultGp17AliyunInfo, MW_FIM_GP17_ALIYUN_INFO_SIZE);
+            memcpy(&g_tAliyunMqttCfg, &g_tMwFimDefaultGp17AliyunMqttCfg, MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE);
         }
-        printf("\nRegion ID from FIM:%d\n", AliyunInfo.ulRegionID);
-        iotx_guider_set_dynamic_region(AliyunInfo.ulRegionID);
-    #endif
+
+        printf("\nFIM_MQTT_URL:[%s]\n", g_tAliyunMqttCfg.s8aUrl);
+
+        if(g_tAliyunMqttCfg.s8aUrl[0])
+        {
+            iotx_guider_set_dynamic_region_only(g_tAliyunInfo.ulRegionID);
+            iotx_guider_get_kv_env(); //update guider_env
+            iotx_guider_set_dynamic_mqtt_url(g_tAliyunMqttCfg.s8aUrl);
+        }
+        else
+        {
+            iotx_guider_set_dynamic_region(g_tAliyunInfo.ulRegionID);
+        }
+        #else
+        iotx_guider_set_dynamic_region(g_tAliyunInfo.ulRegionID);
+        #endif
     }
 
     // update the system mode
@@ -491,16 +477,6 @@ SHM_DATA void BleWifiAppInit(void)
 
     //light pwm init
     light_type_discern();
-
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
-    #else
-    //set mp flag
-    wifi_auto_connect_get_saved_ap_num(&ap_num);
-    if (ap_num == 0)
-    {
-        g_led_mp_mode_flag = 1;
-    }
-    #endif
 
     ada_led_mp_timer_init();
     Rhythm_Random_Color_Init();

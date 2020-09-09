@@ -19,7 +19,7 @@
 #include "ali_linkkitsdk_decl.h"
 #endif
 
-SHM_DATA IoT_Ring_buffer_t g_tRBData;
+IoT_Ring_buffer_t g_tRBData;
 
 #ifdef ADA_REMOTE_CTRL
 osSemaphoreId g_tIotRbSem = NULL;

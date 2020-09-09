@@ -32,16 +32,10 @@ Declaration of data structure
 Declaration of Global Variables & Functions
 ********************************************/
 // Sec 4: declaration of global variable
-const T_MwFim_GP14_Boot_Status g_tMwFimDefaultGp14BootStatus = {0};
-
-// the address buffer of boot status
-uint32_t g_ulaMwFimAddrBufferGP14BootStatus[MW_FIM_GP14_BOOT_STATUS_NUM];
 
 // the information table of group 14
 const T_MwFimFileInfo g_taMwFimGroupTable14_project[] =
 {
-    {MW_FIM_IDX_GP14_PROJECT_BOOT_STATUS, MW_FIM_GP14_BOOT_STATUS_NUM,  MW_FIM_GP14_BOOT_STATUS_SIZE, (uint8_t*)&g_tMwFimDefaultGp14BootStatus, g_ulaMwFimAddrBufferGP14BootStatus},
-
     // the end, don't modify and remove it
     {0xFFFFFFFF,            0x00,              0x00,               NULL,                            NULL}
 };

@@ -132,7 +132,7 @@ static int mbedtls_net_connect_ex( mbedtls_net_context *ctx, const char *host, c
                 FD_SET(fd, &rfds);
                 FD_SET(fd, &wfds);
                 
-                tv.tv_sec = 5; //3;
+                tv.tv_sec = ALI_NET_CONNECT_TIMEOUT;
                 tv.tv_usec = 0;
                 //fcntl( fd, F_SETFL, fcntl( fd, F_GETFL, 0 ) & ~O_NONBLOCK );
                 int selres = select(fd + 1, &rfds, &wfds, NULL, &tv);
@@ -231,13 +231,12 @@ SHM_DATA int mbedtls_net_send_timeout( void *ctx, const unsigned char *buf, size
     }
 #endif
     //hal_err("write B");
-    t.tv_sec = 5; //2;
+    t.tv_sec = ALI_NET_SEND_TIMEOUT;
     t.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof(t)) != 0) {
         printf("set timeout failed.\n");
 
-        //if ((ret = tcp_poll_write(fd, 2000)) <= 0) {
-        if ((ret = tcp_poll_write(fd, 5000)) <= 0) {
+        if ((ret = tcp_poll_write(fd, (ALI_NET_SEND_TIMEOUT * 1000))) <= 0) {
             hal_err("tcp write timeout");
     
             return -1;//select timeout, error

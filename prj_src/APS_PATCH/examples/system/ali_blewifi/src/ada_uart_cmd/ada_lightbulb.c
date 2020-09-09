@@ -24,10 +24,8 @@
 #include "ali_linkkitsdk_decl.h"
 #include "blewifi_ctrl.h"
 
-#ifdef ADA_REMOTE_CTRL
 #undef printf
 #define printf(...)
-#endif
 
 #define RED      0
 #define ORANGE   1

@@ -31,14 +31,8 @@
 #endif
 
 #define BLEWIFI_CTRL_QUEUE_SIZE         (20)
-
-#ifdef BLEWIFI_REFINE_INIT_FLOW
 #define BLEWIFI_CTRL_BLEADVSTOP_TIME    (120000)  // ms
 #define BLEWIFI_CTRL_BLEDISC_TIME       (10000)  // ms
-#else
-#define BLEWIFI_CTRL_BLEADVSTOP_TIME    (180000)  // ms
-#endif
-
 #define BLEWIFI_CTRL_LEDTRANS_TIME      (500)     //ms
 
 typedef enum blewifi_ctrl_msg_type
@@ -87,10 +81,7 @@ typedef enum blewifi_ctrl_msg_type
 
     BLEWIFI_CTRL_MSG_SNTP_START,                    //SNTP Start
     BLEWIFI_CTRL_MSG_SNTP_TIMEOUT,                  //SNTP Time Out
-
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
     BLEWIFI_CTRL_MSG_BLE_ADV_START,                 //BLE ADV Start
-    #endif
 
     BLEWIFI_CTRL_MSG_OTHER__NUM
 } blewifi_ctrl_msg_type_e;
@@ -118,10 +109,7 @@ typedef enum blewifi_ctrl_sys_state
 #define BLEWIFI_CTRL_EVENT_BIT_GOT_IP   0x00000008U
 #define BLEWIFI_CTRL_EVENT_BIT_IOT_INIT 0x00000010U
 #define BLEWIFI_CTRL_EVENT_BIT_NETWORK  0x00000020U
-
-#ifdef BLEWIFI_REFINE_INIT_FLOW
 #define BLEWIFI_CTRL_EVENT_BIT_NETWORK_BLE_ADV  0x00000040U
-#endif
 
 #ifdef ALI_BLE_WIFI_PROVISION
 #define BLEWIFI_CTRL_EVENT_BIT_UNBIND       0x00001000U
@@ -129,9 +117,6 @@ typedef enum blewifi_ctrl_sys_state
 #define BLEWIFI_CTRL_EVENT_BIT_ALI_STOP_BLE 0x00004000U
 #define BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO 0x00008000U     // from connection to got ip
 #define BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1   0x00010000U // from scan to got ip
-#define BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET    0x00020000U
-#define BLEWIFI_CTRL_EVENT_BIT_WAIT_ALI_RESET       0x00040000U
-#define BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_BOOT_RESET   0x00080000U
 #endif
 
 typedef void (*T_BleWifi_Ctrl_EvtHandler_Fp)(uint32_t evt_type, void *data, int len);

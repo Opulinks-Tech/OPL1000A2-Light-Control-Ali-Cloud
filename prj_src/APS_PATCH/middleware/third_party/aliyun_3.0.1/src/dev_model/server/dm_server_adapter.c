@@ -39,7 +39,7 @@ int dm_server_open(void)
     return SUCCESS_RETURN;
 }
 
-SHM_DATA int dm_server_connect(void)
+int dm_server_connect(void)
 {
 
     dm_server_ctx_t *ctx = dm_server_get_ctx();
@@ -47,7 +47,7 @@ SHM_DATA int dm_server_connect(void)
     return iotx_alcs_cloud_init(ctx->conn_handle);
 }
 
-SHM_DATA int dm_server_close(void)
+int dm_server_close(void)
 {
     dm_server_ctx_t *ctx = dm_server_get_ctx();
 

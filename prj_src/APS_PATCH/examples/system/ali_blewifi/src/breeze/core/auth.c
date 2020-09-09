@@ -16,7 +16,6 @@
 #include "blewifi_ble_api.h"
 
 extern core_t g_core;
-auth_t g_auth;
 
 static uint8_t g_ds[BZ_DEV_DEVICE_SECRET_LEN] = { 0 };
 static uint8_t g_ds_len = 0;

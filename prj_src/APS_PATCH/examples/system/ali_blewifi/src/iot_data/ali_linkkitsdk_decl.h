@@ -92,12 +92,14 @@ do {                                                     \
 } while (0)
 #endif
 
+#define IOT_MASK_LIGHT_SWITCH   0x01
+#define IOT_MASK_LOCAL_TIMER    0x02
 
 int ali_linkkit_init(user_example_ctx_t *user_example_ctx);
 
 void IOT_Linkkit_Tx(void);
 
-void iot_update_local_timer(uint8_t u8LightSwitch);
+int iot_update_local_timer(uint8_t u8Mask);
 void iot_set_scenes_color(uint8_t u8WorkMode);
 void iot_set_color_array(hsv_t *taColorArr, uint16_t u16ColorNum, uint8_t u8Apply);
 int iot_load_cfg(uint8_t u8Mode);

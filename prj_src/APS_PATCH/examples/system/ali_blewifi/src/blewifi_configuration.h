@@ -201,7 +201,7 @@ FIM version
     #define MW_FIM_VER13_PROJECT        0x03    // 0x00 ~ 0xFF
 #endif
 
-#define MW_FIM_VER14_PROJECT        0x02    // 0x00 ~ 0xFF
+//#define MW_FIM_VER14_PROJECT        0x02    // 0x00 ~ 0xFF
 #define MW_FIM_VER15_PROJECT        0x03    // 0x00 ~ 0xFF
 
 
@@ -210,7 +210,6 @@ FIM version
 #define ALI_POST_CTRL
 #define ALI_TIMESTAMP
 
-#define BLEWIFI_REFINE_INIT_FLOW
 //#define BLEWIFI_LIGHT_CTRL
 //#define BLEWIFI_LIGHT_DRV
 

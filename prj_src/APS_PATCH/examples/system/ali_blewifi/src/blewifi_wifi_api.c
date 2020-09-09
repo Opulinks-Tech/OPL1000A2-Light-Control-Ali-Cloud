@@ -67,7 +67,7 @@ static T_BleWifi_Wifi_EventHandlerTbl g_tWifiEventHandlerTbl[] =
     {0xFFFFFFFF,                        NULL}
 };
 
-void BleWifi_Wifi_DoScan(uint8_t *data, int len, uint8_t u8BySsid)
+void BleWifi_Wifi_DoScan(uint8_t *data, int len, uint8_t *pu8Ssid)
 {
     wifi_scan_config_t scan_config = {0};
     scan_config.show_hidden = data[0];
@@ -76,9 +76,9 @@ void BleWifi_Wifi_DoScan(uint8_t *data, int len, uint8_t u8BySsid)
 #ifdef ALI_BLE_WIFI_PROVISION 
     //if(g_Ali_wifi_provision==1)
     //if(true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1))
-    if(u8BySsid)
+    if(pu8Ssid)
     {
-        scan_config.ssid = (uint8_t *)g_apInfo.ssid;
+        scan_config.ssid = pu8Ssid;
     }
 #endif
     wifi_scan_start(&scan_config, NULL);
@@ -524,7 +524,7 @@ err:
     return ubAppErr; 
 }
 
-SHM_DATA int BleWifi_Wifi_UpdateScanInfoToAutoConnList(void)
+int BleWifi_Wifi_UpdateScanInfoToAutoConnList(void)
 {
     wifi_scan_info_t *ap_list = NULL;
     uint16_t apCount = 0;
@@ -622,11 +622,6 @@ static int BleWifi_Wifi_EventHandler_Start(wifi_event_id_t event_id, void *data,
     /* DTIM */
     BleWifi_Wifi_SetDTIM(0);
     
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
-    #else
-    BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_INIT_COMPLETE, NULL, 0);
-    #endif
-
     /* MP MODE SCAN START*/
     printf("[MP][SCAN START]g_led_mp_mode_flag:%d\n",g_led_mp_mode_flag);
 
@@ -636,12 +631,10 @@ static int BleWifi_Wifi_EventHandler_Start(wifi_event_id_t event_id, void *data,
         scan_config.scan_type = (wifi_scan_type_t)2;
         wifi_scan_start(&scan_config, NULL);
     }
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
     else
     {
         BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_INIT_COMPLETE, NULL, 0);
     }
-    #endif
 
     return 0;
 }
@@ -727,15 +720,9 @@ static int BleWifi_Wifi_EventHandler_ScanComplete(wifi_event_id_t event_id, void
                 g_u32MpScanCnt = 0;
                 g_led_mp_mode_flag = 0;
 
-                #ifdef BLEWIFI_REFINE_INIT_FLOW
                 //printf("BLE ADV start\n");
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_BLE_ADV_START, NULL, 0);
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_WIFI_INIT_COMPLETE, NULL, 0);
-                #else
-                //printf("Networking start\n");
-                BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET, true);
-                BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_START, NULL, 0);
-                #endif
             }
             else
             {

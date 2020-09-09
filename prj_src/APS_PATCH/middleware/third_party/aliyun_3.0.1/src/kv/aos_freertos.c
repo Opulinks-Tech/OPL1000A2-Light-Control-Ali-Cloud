@@ -48,7 +48,7 @@ struct targ {
     void (*fn)(void *);
     void *arg;
 };
-
+#if 0
 static void dfl_entry(void *arg)
 {
     struct targ *targ = arg;
@@ -60,7 +60,7 @@ static void dfl_entry(void *arg)
 
     vTaskDelete(NULL);
 }
-
+#endif
 void vPortCleanUpTCB(void *pxTCB)
 {
     AosStaticTask_t *task = (AosStaticTask_t *)pxTCB;
@@ -76,6 +76,14 @@ int aos_task_new(const char *name, void (*fn)(void *), void *arg,
                  int stack_size)
 {
     TaskHandle_t xHandle;
+    BaseType_t xReturned;
+    
+    xReturned = xTaskCreate(fn, name, stack_size, (void *) arg, 10, &xHandle);
+    if (xReturned != pdPASS) {
+        printf("create gc task failed\r\n");
+    }
+
+#if 0     
     AosStaticTask_t *task = malloc(sizeof(AosStaticTask_t));
     struct targ *targ = malloc(sizeof(*targ));
     void *stack = malloc(stack_size);
@@ -99,6 +107,7 @@ int aos_task_new(const char *name, void (*fn)(void *), void *arg,
         free(stack);
         free(targ);
     }
+#endif    
     return xHandle ? 0 : -1;
 }
 

@@ -178,19 +178,17 @@ int dm_client_subscribe_all(char product_key[IOTX_PRODUCT_KEY_LEN + 1], char dev
     return SUCCESS_RETURN;
 }
 
-int awss_reported = 0; //Netlink Kevin modify for rebinding
+//int awss_reported = 0; //Netlink Kevin modify for rebinding
+int awss_reported = 1; // do not report cloud until setting awss_reported to 0 in HAL_ResetAliBindflag()
 
 static void _dm_client_event_cloud_connected_handle(void)
 {
 #ifdef DEV_BIND_ENABLED
-    #ifdef ALI_REPORT_TOKEN_AFTER_UNBIND
-    #else
 //    static int awss_reported = 0;
     if(awss_reported == 0) {
         awss_reported = 1;
         awss_report_cloud();
     }
-    #endif
 #endif
     dm_log_info("IOTX_CM_EVENT_CLOUD_CONNECTED");
     dm_msg_cloud_connected();
@@ -207,12 +205,7 @@ void dm_client_event_handle(int fd, iotx_cm_event_msg_t *event, void *context)
 {
     switch (event->type) {
         case IOTX_CM_EVENT_CLOUD_CONNECTED: {
-            #ifdef ALI_UNBIND_REFINE
-            if (!HAL_GetReportReset())
-            #endif
-            {
                 _dm_client_event_cloud_connected_handle();
-            }
         }
         break;
         case IOTX_CM_EVENT_CLOUD_CONNECT_FAILED: {

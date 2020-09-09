@@ -512,7 +512,7 @@ static void BleWifi_Eng_BleCmd(uint8_t *data, int len)
 static void BleWifi_Ble_ProtocolHandler_Scan(uint16_t type, uint8_t *data, int len)
 {
     BLEWIFI_INFO("BLEWIFI: Recv BLEWIFI_REQ_SCAN \r\n");
-    BleWifi_Wifi_DoScan(data, len, 0);
+    BleWifi_Wifi_DoScan(data, len, NULL);
 }
 
 static void BleWifi_Ble_ProtocolHandler_Connect(uint16_t type, uint8_t *data, int len)

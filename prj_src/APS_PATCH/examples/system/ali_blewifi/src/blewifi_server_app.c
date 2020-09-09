@@ -750,10 +750,6 @@ static void BleWifi_Ble_CmMsgHandler_ConnectionCompleteInd(TASK task, MESSAGEID 
     
         BleWifi_Ble_GattIndicateServiceChange(ind->conn_hdl);
 #ifdef ALI_BLE_WIFI_PROVISION
-    #ifdef BLEWIFI_REFINE_INIT_FLOW
-    #else
-        BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_LINK_CONN, false);
-    #endif
         g_noti_flag = false;
         g_Indi_flag = false;
         transport_reset();

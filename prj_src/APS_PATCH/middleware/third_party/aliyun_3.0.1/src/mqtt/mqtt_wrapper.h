@@ -47,9 +47,6 @@ int HAL_Kv_Get(const char *key, void *val, int *buffer_len);
     int32_t HAL_TCP_Read(uintptr_t fd, char *buf, uint32_t len, uint32_t timeout_ms);
 #endif
 
-uint8_t HAL_GetReportReset(void);
-void HAL_SetReportReset(uint8_t u8Reset);
-
 /* mqtt protocol wrapper */
 void *wrapper_mqtt_init(iotx_mqtt_param_t *mqtt_params);
 int wrapper_mqtt_connect(void *client);

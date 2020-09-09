@@ -436,15 +436,12 @@ end:
                 g_nRegion_Id = comboinfo.region_id;
                 iotx_guider_set_dynamic_region(comboinfo.region_id);
 
-#ifdef BLEWIFI_REFINE_INIT_FLOW
                 extern volatile uint8_t g_u8IotUnbind;
 
                 g_u8IotUnbind = 1;
                 BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_LINK_CONN, false);
                 BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_UNBIND, true);
-                BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET, true);
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_START, NULL, 0);
-#endif
             } else if (comboinfo.region_type == REGION_TYPE_MQTTURL) {
 //                printf("[%s, %d]comboinfo.region_mqtturl=%s\n", __FUNCTION__, __LINE__, comboinfo.region_mqtturl);
                 iotx_guider_set_dynamic_mqtt_url(comboinfo.region_mqtturl);

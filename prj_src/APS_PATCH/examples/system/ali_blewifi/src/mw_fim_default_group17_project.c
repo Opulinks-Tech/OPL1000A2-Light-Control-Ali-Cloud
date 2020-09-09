@@ -42,11 +42,17 @@ const T_MwFim_GP17_AliyunInfo g_tMwFimDefaultGp17AliyunInfo =
 // the address buffer of aliyun device
 uint32_t g_ulaMwFimAddrBufferGP17AliyunInfo[MW_FIM_GP17_ALIYUN_INFO_NUM];
 
+const T_MwFim_GP17_AliyunMqttCfg g_tMwFimDefaultGp17AliyunMqttCfg = {0};
+
+// the address buffer of aliyun device
+uint32_t g_ulaMwFimAddrBufferGP17AliyunMqttCfg[MW_FIM_GP17_ALIYUN_MQTT_CFG_NUM];
+
 
 // the information table of group 17
 const T_MwFimFileInfo g_taMwFimGroupTable17_project[] =
 {
     {MW_FIM_IDX_GP17_PROJECT_ALIYUN_INFO,     MW_FIM_GP17_ALIYUN_INFO_NUM,      MW_FIM_GP17_ALIYUN_INFO_SIZE,     (uint8_t*)&g_tMwFimDefaultGp17AliyunInfo,     g_ulaMwFimAddrBufferGP17AliyunInfo},
+    {MW_FIM_IDX_GP17_PROJECT_ALIYUN_MQTT_CFG, MW_FIM_GP17_ALIYUN_MQTT_CFG_NUM,  MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE, (uint8_t*)&g_tMwFimDefaultGp17AliyunMqttCfg,  g_ulaMwFimAddrBufferGP17AliyunMqttCfg},
 
     // the end, don't modify and remove it
     {0xFFFFFFFF,        0x00,       0x00,       NULL,       NULL}

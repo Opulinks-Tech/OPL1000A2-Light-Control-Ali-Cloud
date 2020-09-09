@@ -379,4 +379,6 @@ int iotx_guider_get_region_id(void);
 int     iotx_guider_authenticate(iotx_conn_info_t *conn);
 int     iotx_guider_set_custom_domain(int domain_type, const char *domain);
 
+int iotx_guider_set_dynamic_region_only(int region);
+
 #endif  /* _INFRA_COMPAT_H_ */

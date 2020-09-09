@@ -205,7 +205,7 @@ iotx_mqtt_region_types_t iotx_guider_get_region(void)
     return region_type;
 }
 
-static int guider_get_dynamic_mqtt_url(char *p_mqtt_url, int mqtt_url_buff_len)
+/*static */int guider_get_dynamic_mqtt_url(char *p_mqtt_url, int mqtt_url_buff_len)
 {
     int len = mqtt_url_buff_len;
 
@@ -426,6 +426,37 @@ int iotx_guider_set_dynamic_region(int region)
     ret |= iotx_guider_set_dynamic_mqtt_url(p_dynamic_mqtt_url);
     if (p_dynamic_mqtt_url)
         SYS_GUIDER_FREE(p_dynamic_mqtt_url);
+
+    return ret;
+}
+
+int iotx_guider_set_dynamic_region_only(int region)
+{
+    int ret = 0;
+
+    if (region == IOTX_CLOUD_REGION_INVALID)
+    {
+        sys_info("no region from app so clear region in kv");
+        iotx_guider_clear_dynamic_url();
+        return 0;
+    }
+
+    if (region < 0 || region > IOTX_CLOUD_REGION_MAX)
+    {
+        sys_err("region:%d err", region);
+        return -1;
+    }
+
+    sys_info("APP region id:%d", region);
+
+    ret = guider_set_region_id(region);
+
+    if (region > IOTX_CLOUD_REGION_USA_WEST)
+    {
+        ret = HAL_Kv_Del(KV_MQTT_URL_KEY);
+        sys_warning("del mqtt_url:%d", ret);
+        return 0;
+    }
 
     return ret;
 }

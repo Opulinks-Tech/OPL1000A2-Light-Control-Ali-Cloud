@@ -2838,7 +2838,8 @@ int wrapper_mqtt_connect(void *client)
     pClient->keepalive_probes = 0;
     iotx_mc_set_client_state(pClient, IOTX_MC_STATE_CONNECTED);
 
-    utils_time_countdown_ms(&pClient->next_ping_time, pClient->connect_data.keepAliveInterval * 1000);
+    //utils_time_countdown_ms(&pClient->next_ping_time, pClient->connect_data.keepAliveInterval * 1000);
+    utils_time_countdown_ms(&pClient->next_ping_time, ALI_KEEPALIVE_INITIAL_INTERVAL);
 
     mqtt_info("mqtt connect success!");
     guider_set_direct_connect_count(0);

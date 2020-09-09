@@ -167,7 +167,7 @@ static void BleWifi_Ble_ServerAppGattMsgHandler_ExchangeMtuInd(TASK task, MESSAG
 static void BleWifi_Ble_ServerAppGattMsgHandler_ExchangeMtuCfm(TASK task, MESSAGEID id, MESSAGE message);
 static void BleWifi_Ble_ServerAppGattMsgHandler_ConfirmationCfm(TASK task, MESSAGEID id, MESSAGE message);
 static void BleWifi_Ble_ServerAppGattMsgHandler_OperationTimeout(TASK task, MESSAGEID id, MESSAGE message);
-SHM_DATA T_BleWifi_Ble_MsgHandlerTbl gBleGattMsgHandlerTbl[] =
+T_BleWifi_Ble_MsgHandlerTbl gBleGattMsgHandlerTbl[] =
 {
     {LE_GATT_MSG_NOTIFY_CFM,        BleWifi_Ble_ServerAppGattMsgHandler_NotifyCfm},
     {LE_GATT_MSG_INIT_CFM,          BleWifi_Ble_ServerAppGattMsgHandler_InitCfm},
@@ -621,7 +621,7 @@ SHM_DATA static void BleWifi_Ble_ServerAppGattMsgHandler_OperationTimeout(TASK t
 #endif
 }
 
-SHM_DATA void BleWifi_Ble_GattIndicateServiceChange(UINT16 conn_hdl)
+void BleWifi_Ble_GattIndicateServiceChange(UINT16 conn_hdl)
 {
 	UINT16 len;
 	UINT16 val;

@@ -91,13 +91,11 @@ typedef unsigned char uint8_t;
 #endif
 
 #define ALI_APP_TOKEN_BACKUP
-#define ALI_KEEPALIVE_INTERVAL      (10000) // ms
+#define ALI_KEEPALIVE_INITIAL_INTERVAL  (30000) // ms
+#define ALI_KEEPALIVE_INTERVAL          (10000) // ms
 
-#define ALI_REPORT_TOKEN_AFTER_UNBIND
-
-#ifdef WORLDWIDE_USE
-//#define ALI_UNBIND_REFINE
-#endif
+#define ALI_NET_CONNECT_TIMEOUT         (5) // sec
+#define ALI_NET_SEND_TIMEOUT            (5) // sec
 
 #ifdef SUPPORT_TLS
 #define ALI_HTTP_COMPATIBLE

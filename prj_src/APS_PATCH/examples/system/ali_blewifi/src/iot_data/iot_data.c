@@ -30,11 +30,12 @@
 #include "lwip/etharp.h"
 #include "awss_reset.h"
 
-volatile uint8_t g_u8IotBind = 0;
+volatile uint8_t g_u8IotPostSuspend = 0;
 
 #ifdef ALI_TIMESTAMP
 volatile uint32_t g_u32TsPrevSync = 0;
 volatile uint32_t g_u32TsNextSyncTime = 0;
+volatile uint8_t g_u8TsSyncEnable = 0;
 
 extern volatile uint8_t g_u8IotUnbind;
 
@@ -66,6 +67,11 @@ void Iot_TimestampProc(void)
 {
     uint32_t u32Curr = 0;
     uint8_t u8Run = 0;
+
+    if(!g_u8TsSyncEnable)
+    {
+        goto done;
+    }
 
     u32Curr = BleWifi_SntpGetRawData(0);
 
@@ -115,7 +121,13 @@ void Iot_TimestampProc(void)
         g_u32TsPrevSync = u32Curr;
     }
 
+done:
     return;
+}
+
+void Iot_TsSyncEnable(uint8_t u8Enable)
+{
+    g_u8TsSyncEnable = u8Enable;
 }
 #endif //#ifdef ALI_TIMESTAMP
 
@@ -290,19 +302,7 @@ void Iot_Data_RxTask(void *args)
 
     //while (1)
     {
-        if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET))
-        {
-            BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_PREPARE_ALI_RESET, false);
-            BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_WAIT_ALI_RESET, true);
-
-            #ifdef ALI_UNBIND_REFINE
-            HAL_SetReportReset(1);
-            #endif
-            
-            //awss_report_reset();
-            goto done;
-        }
-        else if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_UNBIND))
+        if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_UNBIND))
         {
             //if (false == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_WAIT_ALI_RESET))
             if(1)
@@ -319,6 +319,7 @@ void Iot_Data_RxTask(void *args)
                 BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_IOT_INIT, false);
     
                 g_u8IotUnbind = 0;
+                g_u8IotPostSuspend = 1;
 
                 {
                     char rst = 0x01;
@@ -380,8 +381,6 @@ void Iot_Data_RxTask(void *args)
                     //continue;
                 }
                 
-                g_u8IotBind = 1;
-                
                 // init behavior
                 printf("BLEWIFI_CTRL_EVENT_BIT_LINK_CONN\r\n");           
                 //Start Connect Aliyun Server
@@ -398,6 +397,7 @@ void Iot_Data_RxTask(void *args)
                 }else{
                     printf("BLEWIFI_CTRL_EVENT_BIT_IOT_INIT true\r\n"); 
                     BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_IOT_INIT, true);
+                    Iot_TsSyncEnable(0);
                 }
             }
 

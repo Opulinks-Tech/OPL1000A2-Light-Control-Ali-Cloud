@@ -36,8 +36,6 @@ typedef enum
 {
     MW_FIM_IDX_GP14_PROJECT_START = 0x01040000,             // the start IDX of group 14
 
-    MW_FIM_IDX_GP14_PROJECT_BOOT_STATUS,
-
     MW_FIM_IDX_GP14_PROJECT_MAX
 } E_MwFimIdxGroup14_Project;
 
@@ -45,21 +43,13 @@ typedef enum
 Declaration of data structure
 ******************************/
 // Sec 3: structure, uniou, enum, linked list
-typedef struct
-{
-    uint8_t u8Cnt;
-} T_MwFim_GP14_Boot_Status;
 
-#define MW_FIM_GP14_BOOT_STATUS_SIZE    sizeof(T_MwFim_GP14_Boot_Status)
-#define MW_FIM_GP14_BOOT_STATUS_NUM     1
 
 /********************************************
 Declaration of Global Variables & Functions
 ********************************************/
 // Sec 4: declaration of global variable
 extern const T_MwFimFileInfo g_taMwFimGroupTable14_project[];
-
-extern const T_MwFim_GP14_Boot_Status g_tMwFimDefaultGp14BootStatus;
 
 
 // Sec 5: declaration of global function prototype

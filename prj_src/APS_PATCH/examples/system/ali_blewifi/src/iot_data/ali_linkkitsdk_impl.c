@@ -28,6 +28,7 @@
 #include "mqtt_wrapper.h"
 #include "util_func.h"
 #include "mw_fim_default_group15_project.h"
+#include "mw_fim_default_group17_project.h"
 #include "lwip/etharp.h"
 #include "infra_net.h"
 #include "iotx_cm_internal.h"
@@ -79,6 +80,7 @@ typedef struct
 {
     uint8_t u8Used;
     int iId;
+    uint32_t u32Cnt;
 } T_PostInfo;
 
 T_PostInfo g_tPrevPostInfo = {0};
@@ -496,63 +498,44 @@ SHM_DATA void iot_update_light_property(uint16_t u16Flag, uint32_t u32MsgId)
     return;
 }
 
-SHM_DATA void iot_update_local_timer(uint8_t u8LightSwitch)
+SHM_DATA uint8_t iot_is_local_timer_valid(void)
 {
-    char *property_payload = NULL;
-    uint32_t u32BufSize = 32;
-    uint32_t u32Offset = 0;
-    uint8_t i = 0, j = 0, k = 0;
-    user_example_ctx_t *user_example_ctx = user_example_get_ctx();
     uint8_t u8IsValid = 0;
+    uint8_t i = 0;
 
-    if(!u8LightSwitch)
+    for (i = 0; i < MW_FIM_GP13_DEV_SCHED_NUM; i++)
     {
-        for (i = 0; i < MW_FIM_GP13_DEV_SCHED_NUM; i++)
+        if(g_taDevSched[i].u8IsValid)
         {
-            if(g_taDevSched[i].u8IsValid)
-            {
-                u8IsValid = 1;
-                break;
-            }
-        }
-    
-        if(u8IsValid)
-        {
-            u32BufSize = PROPERTY_LOCALTIMER_PAYLOAD_LEN;
+            u8IsValid = 1;
+            break;
         }
     }
 
-    property_payload = (char *)HAL_Malloc(u32BufSize);
+    return u8IsValid;
+}
 
-    if(!property_payload)
-    {
-        printf("malloc fail\n");
-        goto done;
-    }
+SHM_DATA uint32_t iot_get_local_timer(char *ps8Buf, uint32_t u32BufSize, uint32_t u32Offset)
+{
+    uint8_t i = 0, j = 0, k = 0;
 
-    if(u8LightSwitch)
-    {
-        u32Offset += snprintf(property_payload, u32BufSize, "{\"LightSwitch\":%d}", light_ctrl_get_switch());
-        goto done;
-    }
-    
-    u32Offset += snprintf(property_payload, u32BufSize, "{\"LocalTimer\":[");
+    u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "\"LocalTimer\":[");
 
-    if(u8IsValid)
+    if(iot_is_local_timer_valid())
     {
         for (i = 0; i < MW_FIM_GP13_DEV_SCHED_NUM; i++)
         {
             char s8aRepeatBuf[LOCALTIMER_REPEAT_BUF_LEN] = {0};
             uint32_t u8RepeatBufSize = LOCALTIMER_REPEAT_BUF_LEN;
             uint32_t u32RepeatOffset = 0;
-
+    
             if(i)
             {
-                u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, ",");
+                u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",");
             }
-
+    
             k = 0;
-
+    
             for(j = 1; j < 8; j++)
             {
                 if (g_taDevSched[i].u8RepeatMask & (1 << j))
@@ -561,25 +544,25 @@ SHM_DATA void iot_update_local_timer(uint8_t u8LightSwitch)
                     {
                        u32RepeatOffset += snprintf(s8aRepeatBuf + u32RepeatOffset, u8RepeatBufSize - u32RepeatOffset, ",");
                     }
-
+    
                     u32RepeatOffset += snprintf(s8aRepeatBuf + u32RepeatOffset, u8RepeatBufSize - u32RepeatOffset, "%u", j);
                     k++;
                  }
             }
-
+    
             if(!k)
             {
                 strcpy(s8aRepeatBuf, "*");
             }
-
-            u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "{\"LightSwitch\":%u,\"Timer\":\"%u %u * * %s\",\"Enable\":%u,\"IsValid\":%u,\"TimezoneOffset\":%d}"
+    
+            u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "{\"LightSwitch\":%u,\"Timer\":\"%u %u * * %s\",\"Enable\":%u,\"IsValid\":%u,\"TimezoneOffset\":%d}"
                                 , g_taDevSched[i].u8DevOn
                                 , g_taDevSched[i].u8Min
                                 , g_taDevSched[i].u8Hour
                                 , s8aRepeatBuf
                                 , g_taDevSched[i].u8Enable
                                 , g_taDevSched[i].u8IsValid
-
+    
                                 #ifdef BLEWIFI_SCHED_EXT
                                 , g_taDevSchedExt[i].s32TimeZone
                                 #else
@@ -589,72 +572,142 @@ SHM_DATA void iot_update_local_timer(uint8_t u8LightSwitch)
         }
     }
 
-    u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "]}");
+    u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "]");
 
-done:
-    printf("\npost for local_timer switch[%u]: malloc[%u] len[%u]\n", u8LightSwitch, u32BufSize, u32Offset);
-    printf("%s\n\n", property_payload);
-
-    IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_PROPERTY,
-                      (unsigned char *)property_payload, u32Offset);
-
-    if(property_payload)
-    {
-        HAL_Free(property_payload);
-    }
-
-    return;
+    return u32Offset;
 }
 
-static int user_connected_event_handler(void)
+SHM_DATA int iot_update_local_timer(uint8_t u8Mask)
 {
-    extern volatile uint8_t g_u8CloudRedirect;
-    extern volatile uint8_t g_u8IotBind;
+    int iRet = -1;
+    char s8aPayload[64] = {0}; // for {"LightSwitch":1,"LocalTimer":[]}
+    uint32_t u32BufSize = sizeof(s8aPayload);
+    char *property_payload = s8aPayload;
+    uint32_t u32Offset = 0;
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
+    uint8_t u8AlreadyWrite = 0;
 
-    EXAMPLE_TRACE("Cloud Connected");
-    user_example_ctx->cloud_connected = 1;
-	
+    if(u8Mask & IOT_MASK_LOCAL_TIMER)
+    {
+        if(iot_is_local_timer_valid())
+        {
+            u32BufSize += PROPERTY_LOCALTIMER_PAYLOAD_LEN;
+
+            property_payload = (char *)HAL_Malloc(u32BufSize);
+
+            if(!property_payload)
+            {
+                printf("HAL_Malloc fail\n");
+                goto done;
+            }
+        }
+    }
+
+    u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "{");
+
+    if(u8Mask & IOT_MASK_LIGHT_SWITCH)
+    {
+        if(u8AlreadyWrite)
+        {
+            u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, ",");
+        }
+
+        u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "\"LightSwitch\":%d", light_ctrl_get_switch());
+        u8AlreadyWrite = 1;
+    }
+
+    if(u8Mask & IOT_MASK_LOCAL_TIMER)
+    {
+        if(u8AlreadyWrite)
+        {
+            u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, ",");
+        }
+
+        u32Offset = iot_get_local_timer(property_payload, u32BufSize, u32Offset);
+        u8AlreadyWrite = 1;
+    }
+
+    u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "}");
+
+    printf("\npost for local_timer mask[%02X]: buf_size[%u] len[%u]\n", u8Mask, u32BufSize, u32Offset);
+    printf("%s\n\n", property_payload);
+
+    iRet = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_PROPERTY,
+                      (unsigned char *)property_payload, u32Offset);
+
+done:
+    if(property_payload)
+    {
+        if(property_payload != s8aPayload)
+        {
+            HAL_Free(property_payload);
+        }
+    }
+
+    return iRet;
+}
+
+void user_curr_status_post(void)
+{
+    uint16_t u16OutputFlag = 0;
+
     #ifdef ALI_POST_CTRL
     IoT_Ring_Buffer_ResetBuffer();
     post_info_clear();
     #endif
 
-    //if(g_light_reboot_flag || g_u8CloudRedirect)
-    if(g_u8IotBind || g_u8CloudRedirect)
+    SET_BIT(u16OutputFlag, PROPERTY_LIGHT_SWITCH);
+    SET_BIT(u16OutputFlag, PROPERTY_LIGHTTYPE);
+    SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+    SET_BIT(u16OutputFlag, PROPERTY_LOCALTIMER);
+
+    if(light_ctrl_get_light_type() != LT_RGB)
     {
-        uint16_t u16OutputFlag = 0;
+        // Even though device has no warm-light, we still post color temperature to update settings in ali-cloud.
+        // Because device may have used firmware of warm-light and posted unsupported color temperature before.
+        SET_BIT(u16OutputFlag, PROPERTY_COLORTEMPERATURE);
+    }
 
-        SET_BIT(u16OutputFlag, PROPERTY_LIGHT_SWITCH);
-        SET_BIT(u16OutputFlag, PROPERTY_LIGHTTYPE);
-        SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+    iot_update_light_property(u16OutputFlag, 0);
+    return;
+}
 
-        if(light_ctrl_get_light_type() != LT_RGB)
+static int user_connected_event_handler(void)
+{
+    extern volatile uint8_t g_u8IotPostSuspend;
+    user_example_ctx_t *user_example_ctx = user_example_get_ctx();
+
+    EXAMPLE_TRACE("Cloud Connected");
+    user_example_ctx->cloud_connected = 1;
+	
+    if(g_u8IotPostSuspend)
+    {
+        g_u8IotPostSuspend = 0;
+    }
+    else
+    {
+        user_curr_status_post();
+    }
+
+    {
+        extern T_MwFim_GP17_AliyunMqttCfg g_tAliyunMqttCfg;
+        extern int guider_get_dynamic_mqtt_url(char *p_mqtt_url, int mqtt_url_buff_len);
+    
+        char s8aMqttUrl[MW_FIM_GP17_MQTT_URL_SIZE] = {0};
+    
+        if(!guider_get_dynamic_mqtt_url(s8aMqttUrl, MW_FIM_GP17_MQTT_URL_SIZE))
         {
-            // Even though device without warm-light, we still post color temperature to update settings in ali-cloud.
-            // Becuase device may have used firmware-with-warm-light and posted unsupported color temperature before.
-            SET_BIT(u16OutputFlag, PROPERTY_COLORTEMPERATURE);
-        }
+            if(strcmp(s8aMqttUrl, g_tAliyunMqttCfg.s8aUrl))
+            {
+                snprintf(g_tAliyunMqttCfg.s8aUrl, sizeof(g_tAliyunMqttCfg.s8aUrl), "%s", s8aMqttUrl);
 
-        iot_update_light_property(u16OutputFlag, 0);
-
-        iot_update_local_timer(0);
-
-        /*
-        if(g_light_reboot_flag)
-        {
-            g_light_reboot_flag = 0;
-        }
-        */
-
-        if(g_u8IotBind)
-        {
-            g_u8IotBind = 0;
-        }
-
-        if(g_u8CloudRedirect)
-        {
-            g_u8CloudRedirect = 0;
+                //printf("update mqtt_url[%s]\n", g_tAliyunMqttCfg.s8aUrl);
+    
+                if(MwFim_FileWrite(MW_FIM_IDX_GP17_PROJECT_ALIYUN_MQTT_CFG, 0, MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE, (uint8_t*)&g_tAliyunMqttCfg) != MW_FIM_OK)
+                {
+                    BLEWIFI_ERROR("MwFim_FileWrite fail for MQTT_URL[%s]\n", g_tAliyunMqttCfg.s8aUrl);
+                }
+            }
         }
     }
 
@@ -1465,19 +1518,6 @@ static int user_property_set_event_handler(const int devid, const char *request,
         }
     }
 
-#if 0
-    /* Try To Find LightType Property */
-    if (!lite_cjson_object_item(&tRoot, "LightType", 9, &tLightType)) {
-        EXAMPLE_TRACE("LightType: %d ignored\r\n", tLightType.value_int);
-
-        if(!is_expired_msg(PROPERTY_LIGHTTYPE, u32MsgId))
-        {
-            //IoT_Properity.ubLightType = (uint8_t)light_ctrl_get_light_type();
-            //IoT_Ring_Buffer_Push(&IoT_Properity);
-        }
-    }
-#endif
-
     iRet = 0;
 
 done:
@@ -1498,21 +1538,10 @@ static int user_property_get_event_handler(const int devid, const char *request,
     uint32_t u32BufSize = 256;
     char *ps8Buf = NULL;
     uint32_t u32Offset = 0;
-    uint8_t u8IsValid = 0;
-    uint32_t i = 0, j = 0, k = 0;
-
+    
     EXAMPLE_TRACE("Property Get Received, Devid: %d, Request: %s", devid, request);
 
-    for (i = 0; i < MW_FIM_GP13_DEV_SCHED_NUM; i++)
-    {
-        if(g_taDevSched[i].u8IsValid)
-        {
-            u8IsValid = 1;
-            break;
-        }
-    }
-
-    if(u8IsValid)
+    if(iot_is_local_timer_valid())
     {
         u32BufSize += PROPERTY_LOCALTIMER_PAYLOAD_LEN;
     }
@@ -1562,65 +1591,14 @@ static int user_property_get_event_handler(const int devid, const char *request,
                 break;
         }
 
-        u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",\"LocalTimer\":[");
-
-        if(u8IsValid)
-        {
-            for (i = 0; i < MW_FIM_GP13_DEV_SCHED_NUM; i++)
-            {
-                char s8aRepeatBuf[LOCALTIMER_REPEAT_BUF_LEN] = {0};
-                uint32_t u8RepeatBufSize = LOCALTIMER_REPEAT_BUF_LEN;
-                uint32_t u32RepeatOffset = 0;
-
-                if(i)
-                {
-                    u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",");
-                }
-
-                k = 0;
-
-                for(j = 1; j < 8; j++)
-                {
-                    if (g_taDevSched[i].u8RepeatMask & (1 << j))
-                    {
-                        if(k)
-                        {
-                           u32RepeatOffset += snprintf(s8aRepeatBuf + u32RepeatOffset, u8RepeatBufSize - u32RepeatOffset, ",");
-                        }
-
-                        u32RepeatOffset += snprintf(s8aRepeatBuf + u32RepeatOffset, u8RepeatBufSize - u32RepeatOffset, "%u", j);
-                        k++;
-                     }
-                }
-
-                if(!k)
-                {
-                    strcpy(s8aRepeatBuf, "*");
-                }
-
-                u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "{\"LightSwitch\":%u,\"Timer\":\"%u %u * * %s\",\"Enable\":%u,\"IsValid\":%u,\"TimezoneOffset\":%d}"
-                                    , g_taDevSched[i].u8DevOn
-                                    , g_taDevSched[i].u8Min
-                                    , g_taDevSched[i].u8Hour
-                                    , s8aRepeatBuf
-                                    , g_taDevSched[i].u8Enable
-                                    , g_taDevSched[i].u8IsValid
-
-                                    #ifdef BLEWIFI_SCHED_EXT
-                                    , g_taDevSchedExt[i].s32TimeZone
-                                    #else
-                                    , g_taDevSched[i].s32TimeZone
-                                    #endif
-                                    );
-            }
-        }
-
-        u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "]}");
+        u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, ",");
+        u32Offset = iot_get_local_timer(ps8Buf, u32BufSize, u32Offset);
+        u32Offset += snprintf(ps8Buf + u32Offset, u32BufSize - u32Offset, "}");
 
         *response = ps8Buf;
         *response_len = u32Offset;
 
-        printf("property_get len[%u]\n", *response_len);
+        printf("property_get malloc[%u] len[%u]\n", u32BufSize, *response_len);
         printf("%s\n\n", *response);
     }
 
@@ -1637,7 +1615,6 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
                   reply_value_len,
                   reply_value);
 
-#if 1
     if(g_tPrevPostInfo.u8Used)
     {
         if(code == 200)
@@ -1646,7 +1623,17 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
             {
                 EXAMPLE_TRACE("msgid[%d] == prev_post_id[%d], clear post info.\n", msgid, g_tPrevPostInfo.iId);
 
-                post_info_clear();
+                g_tPrevPostInfo.u32Cnt += 1;
+
+                if(g_tPrevPostInfo.u32Cnt == 1)
+                {
+                    extern void Iot_TsSyncEnable(uint8_t u8Enable);
+
+                    Iot_TsSyncEnable(1);
+                }
+
+                //post_info_clear();
+                g_tPrevPostInfo.u8Used = 0;
             }
             else
             {
@@ -1672,29 +1659,6 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
             // clear buffer/post_info and enable one_shot_arp in user_disconnected_event_handler()
         }
     }
-#else
-    #ifdef ALI_POST_CTRL
-    if(g_tPrevPostInfo.u8Used)
-    {
-        if(msgid == g_tPrevPostInfo.iId)
-        {
-            EXAMPLE_TRACE("msgid[%d] == prev_post_id[%d], clear post info.\n", msgid, g_tPrevPostInfo.iId);
-
-            post_info_clear();
-        }
-        else
-        {
-            EXAMPLE_TRACE("msgid[%d] != prev_post_id[%d]\n", msgid, g_tPrevPostInfo.iId);
-        }
-    }
-    #endif
-
-    if(code != 200)
-    {
-        //EXAMPLE_TRACE("lwip_one_shot_arp_enable\n");
-        lwip_one_shot_arp_enable();
-    }
-#endif
 
     return 0;
 }
@@ -1777,16 +1741,19 @@ static int user_fota_event_handler(int type, const char *version)
 SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
 {
     int iRes = 0;
-    char property_payload[256] = {0};
+    //char property_payload[256] = {0};
     uint32_t u32Offset = 0;
     uint8_t already_wrt_flag = 0;
     //time_t property_timestamp = BleWifi_SntpGetRawData();
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
 
-
     //char *ColorArr_update = "{\"ColorArr\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d,\"Enable\":%d}}";
     char *HSVColor_update = "\"HSVColor\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d}";
     char *ScenesColor_update = "\"ScenesColor\":{\"Saturation\":%d,\"Value\":%d,\"Hue\":%d}";
+
+    char s8aPayload[256] = {0};
+    uint32_t u32BufSize = sizeof(s8aPayload);
+    char *property_payload = s8aPayload;
 
     /*
     uint8_t u8WarmLightEnabled = 0;
@@ -1877,6 +1844,23 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
         SET_BIT(ptProp->u16Flag, PROPERTY_HSVCOLOR);
         SET_BIT(ptProp->u16Flag, PROPERTY_SCENESCOLOR);
     }
+
+    if(CHK_BIT(ptProp->u16Flag, PROPERTY_LOCALTIMER))
+    {
+        uint8_t u8IsValid = iot_is_local_timer_valid();
+
+        if(u8IsValid)
+        {
+            u32BufSize += PROPERTY_LOCALTIMER_PAYLOAD_LEN;
+
+            property_payload = (char *)HAL_Malloc(u32BufSize);
+
+            if(!property_payload)
+            {
+                goto done;
+            }
+        }
+    }
     
     u32Offset = sprintf( property_payload, "{");
     
@@ -1960,20 +1944,36 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
         u32Offset += sprintf( property_payload + u32Offset, HSVColor_update, light_ctrl_get_saturation(), light_ctrl_get_value(), light_ctrl_get_hue());
         already_wrt_flag = 1;
     }
+
+    if (CHK_BIT(ptProp->u16Flag, PROPERTY_LOCALTIMER))
+    {
+        if (already_wrt_flag)
+            u32Offset += sprintf( property_payload +u32Offset, ",");
+
+        u32Offset = iot_get_local_timer(property_payload, u32BufSize, u32Offset);
+        already_wrt_flag = 1;
+    }
     
     u32Offset += sprintf( property_payload +u32Offset, "}");
 
-//DONE:
-
-    printf("\npost for msg_id[%u]: len[%u]\n", ptProp->u32MsgId, u32Offset);
+    printf("\npost for msg_id[%u]: buf_size[%u] len[%u]\n", ptProp->u32MsgId, u32BufSize, u32Offset);
     printf("%s\n\n", property_payload);
 
     iRes = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_PROPERTY,
                              (unsigned char *)property_payload, u32Offset);
-	
+
     if(iRes >= 0)
     {
         post_info_update(iRes);
+    }
+
+done:
+    if(property_payload)
+    {
+        if(property_payload != s8aPayload)
+        {
+            HAL_Free(property_payload);
+        }
     }
 
     return;
