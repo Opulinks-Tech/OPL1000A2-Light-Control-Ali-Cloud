@@ -23,7 +23,7 @@
 **FW_Binary** folder
 
 - Contains m0 bin file and pack script file that used to generate an integrated firmware.
-- opl1000.bin: OPL1000 integrated firmware file. User can download it to "Ali-LED" type device and evaluate its function directly. 
+- opl1000_ali_light_xxx_xxx_xxx_xxx.bin: OPL1000 integrated firmware file. User can download it to "Ali-LED" type device and evaluate its function directly. 
 - Note: in order to avoid device "Ali Key 5 elements" conflict, user shall apply new "Ali Key 5 elements" from Ali cloud. Refer "OPL1000_ali_key&app_create_guide.pdf" document to know detailed information.  
 
 ## Develop application based on reference
