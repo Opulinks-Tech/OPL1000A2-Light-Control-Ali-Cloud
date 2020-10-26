@@ -33,19 +33,30 @@
 #include "infra_net.h"
 #include "iotx_cm_internal.h"
 #include "iotx_mqtt_client.h"
+//#undef printf
+//#define printf(...)
 
 #ifdef BLEWIFI_SCHED_EXT
 #include "mw_fim_default_group16_project.h"
 #endif
 
-#ifdef ADA_REMOTE_CTRL
+#if BLEWIFI_REMOTE_CTRL
 #include "ada_lightbulb.h"
 #endif
 
+#include "infra_config.h"
+
+#if ALI_AUTO_TEST
+#include "auto_test_stats.h"
+#include "driver_netlink.h"
+#endif
+
+#if 0
 char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
 char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
 char DEMO_DEVICE_SECRET[IOTX_DEVICE_SECRET_LEN + 1] = {0};
 char DEMO_PRODUCT_SECRET[IOTX_PRODUCT_SECRET_LEN + 1] = {0};
+#endif
 
 extern osTimerId g_tRhythm;
 extern uint8_t g_rhythm_S, g_rhythm_V;
@@ -193,13 +204,24 @@ void iot_set_color_array(hsv_t *taColorArr, uint16_t u16ColorNum, uint8_t u8Appl
     }
 }
 
-void iot_update_cfg_for_no_cw_dev(void)
+void iot_update_cfg_for_no_cw_dev(uint8_t u8Default)
 {
     if(light_ctrl_get_light_type() == LT_RGB)
     {
-        // no cold/warm lights
-        g_tLightStatus.u8LightMode = 1; // default light mode for no-cold-warm-lights device
-        g_tHsvStatus.hue = 60;          // default hue for no-cold-warm-lights device
+        if(u8Default)
+        {
+            // no cold/warm lights
+            g_tLightStatus.u8LightMode = 1; // default light mode for no-cold-warm-lights device
+            g_tHsvStatus.hue = 60;          // default hue for no-cold-warm-lights device
+        }
+        else
+        {
+            if(g_tLightStatus.u8LightMode == 0)
+            {
+                // no cold/warm lights
+                g_tLightStatus.u8LightMode = 1; // default light mode for no-cold-warm-lights device
+            }
+        }
     }
 
     return;
@@ -242,7 +264,7 @@ int iot_load_cfg(uint8_t u8Mode)
             }
         }
 
-        iot_update_cfg_for_no_cw_dev();
+        iot_update_cfg_for_no_cw_dev(0);
     }
     else
     {
@@ -254,7 +276,7 @@ int iot_load_cfg(uint8_t u8Mode)
         memcpy(&g_tHsvStatus, &g_tMwFimDefaultGp15HsvStatus, MW_FIM_GP15_HSV_STATUS_SIZE);
         memcpy(&g_tScenesStatus, &g_tMwFimDefaultGp15ScenesStatus, MW_FIM_GP15_SCENES_STATUS_SIZE);
 
-        iot_update_cfg_for_no_cw_dev();
+        iot_update_cfg_for_no_cw_dev(1);
     
         for(i = 0; i < MW_FIM_GP15_COLOR_ARRAY_NUM; i++)
         {
@@ -341,7 +363,7 @@ int iot_apply_cfg(uint8_t u8Mode)
     return iRet;
 }
 
-SHM_DATA void iot_save_all_cfg(void)
+void iot_save_all_cfg(void)
 {
     T_MwFim_GP15_Light_Status tLightStatus = {0};
     T_MwFim_GP15_Ctb_Status tCtbStatus = {0};
@@ -483,7 +505,7 @@ SHM_DATA void iot_save_all_cfg(void)
     return;
 }
 
-SHM_DATA void iot_update_light_property(uint16_t u16Flag, uint32_t u32MsgId)
+/*SHM_DATA */void iot_update_light_property(uint16_t u16Flag, uint32_t u32MsgId)
 {
     IoT_Properity_t tProp = {0};
 
@@ -629,8 +651,8 @@ SHM_DATA int iot_update_local_timer(uint8_t u8Mask)
 
     u32Offset += snprintf(property_payload + u32Offset, u32BufSize - u32Offset, "}");
 
-    printf("\npost for local_timer mask[%02X]: buf_size[%u] len[%u]\n", u8Mask, u32BufSize, u32Offset);
-    printf("%s\n\n", property_payload);
+    //printf("\npost for local_timer mask[%02X]: buf_size[%u] len[%u]\n", u8Mask, u32BufSize, u32Offset);
+    //printf("%s\n\n", property_payload);
 
     iRet = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_PROPERTY,
                       (unsigned char *)property_payload, u32Offset);
@@ -661,6 +683,10 @@ void user_curr_status_post(void)
     SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
     SET_BIT(u16OutputFlag, PROPERTY_LOCALTIMER);
 
+    #ifdef BLEWIFI_LOCAL_SYMPHONY
+    SET_BIT(u16OutputFlag, PROPERTY_RHYON);
+    #endif
+
     if(light_ctrl_get_light_type() != LT_RGB)
     {
         // Even though device has no warm-light, we still post color temperature to update settings in ali-cloud.
@@ -677,7 +703,11 @@ static int user_connected_event_handler(void)
     extern volatile uint8_t g_u8IotPostSuspend;
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
 
+#if 1
+    printf("Cloud Connected\n");
+#else
     EXAMPLE_TRACE("Cloud Connected");
+#endif
     user_example_ctx->cloud_connected = 1;
 	
     if(g_u8IotPostSuspend)
@@ -686,7 +716,10 @@ static int user_connected_event_handler(void)
     }
     else
     {
+        #if (ALI_AUTO_TEST == 3)
+        #else
         user_curr_status_post();
+        #endif
     }
 
     {
@@ -727,7 +760,11 @@ static int user_disconnected_event_handler(void)
 {
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
 
+#if 1
+    printf("Cloud Disconnected\n");
+#else
     EXAMPLE_TRACE("Cloud Disconnected");
+#endif
 
     user_example_ctx->cloud_connected = 0;
 
@@ -749,15 +786,10 @@ static int user_down_raw_data_arrived_event_handler(const int devid, const unsig
     return 0;
 }
 
-static int user_service_request_event_handler(const int devid, const char *serviceid, const int serviceid_len,
-        const char *request, const int request_len,
-        char **response, int *response_len)
+
+int Rhyon_handler(const char *request, const int request_len)
 {
     int iRet = -1;
-
-    EXAMPLE_TRACE("Service Request Received, Devid: %d, Service ID: %.*s, Payload: %s", devid, serviceid_len,
-                  serviceid,
-                  request);
 
     lite_cjson_t tRoot = {0};
     
@@ -798,6 +830,43 @@ static int user_service_request_event_handler(const int devid, const char *servi
 
 done:
     return iRet;
+}
+
+
+#ifdef BLEWIFI_LOCAL_SYMPHONY
+extern void local_symstart(void);
+extern void local_symstop(void);
+
+uint8_t g_OpllocalRhyon = 0;
+uint8_t g_RunLocalRhyonOnce = 0;
+
+#endif
+
+int user_service_request_event_handler(const int devid, const char *serviceid, const int serviceid_len,
+        const char *request, const int request_len,
+        char **response, int *response_len)
+{
+    int iRet = -1;
+
+    EXAMPLE_TRACE("Service Request Received, Devid: %d, Service ID: %.*s, Payload: %s", devid, serviceid_len,
+                  serviceid,
+                  request);
+    
+
+#ifdef BLEWIFI_LOCAL_SYMPHONY
+    iRet = 0;
+    if( 0 == g_RunLocalRhyonOnce)
+    {
+        local_symstart();
+        g_OpllocalRhyon = 1;
+        g_RunLocalRhyonOnce = 1;
+    }    
+#else
+    iRet = Rhyon_handler(request, request_len);   
+#endif
+
+   return iRet;
+
 }
 
 static int dev_sched_time_set(char *sTime, T_MwFim_GP13_Dev_Sched *ptSched)
@@ -858,7 +927,7 @@ typedef struct
     uint32_t u32MaxDiscardCnt;
 } T_MsgStatus;
 
-T_MsgStatus g_taMsgStatus[PROPERTY_MAX] = 
+SHM_DATA T_MsgStatus g_taMsgStatus[PROPERTY_MAX] = 
 {
     {0, 0, 2,  0,   0, 0},   // PROPERTY_LIGHT_SWITCH
     {0, 0, 30, 0,   0, 0},   // PROPERTY_COLORTEMPERATURE
@@ -874,7 +943,7 @@ T_MsgStatus g_taMsgStatus[PROPERTY_MAX] =
     {0, 0, 2,  0,   0, 0},   // PROPERTY_LOCALTIMER
 };
 
-SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
+int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
 {
     int iRet = 1;
     uint32_t u32OlderMsgIdThreshold = 100;
@@ -888,13 +957,19 @@ SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
 
     util_get_current_time(&u32Time, NULL);
 
-    printf("id[%u] time[%u]: idx[%u] curr_id[%u] upd_time[%u]\n", u32MsgId, u32Time, u32Idx, g_taMsgStatus[u32Idx].u32CurrMsgId, g_taMsgStatus[u32Idx].u32UpdateTime);
+    //printf("id[%u] time[%u]: idx[%u] curr_id[%u] upd_time[%u]\n", u32MsgId, u32Time, u32Idx, g_taMsgStatus[u32Idx].u32CurrMsgId, g_taMsgStatus[u32Idx].u32UpdateTime);
 
     if(g_taMsgStatus[u32Idx].u32CurrMsgId)
     {
         if(u32MsgId <= g_taMsgStatus[u32Idx].u32CurrMsgId)
         {
             uint32_t u32Offset = g_taMsgStatus[u32Idx].u32CurrMsgId - u32MsgId;
+
+            if(!u32Offset)
+            {
+                //printf("ignore duplicated id[%u]\n", u32MsgId);
+                goto done;
+            }
 
             if(u32Offset < u32OlderMsgIdThreshold)
             {
@@ -916,7 +991,7 @@ SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
                        (u32Time >= (g_taMsgStatus[u32Idx].u32UpdateTime + u32TimeThreshold)))
                     {
                         // a few seconds after last update => it's new msg
-                        printf("time[%u] > (%u + %u): update\n", u32Time, g_taMsgStatus[u32Idx].u32UpdateTime, u32TimeThreshold);
+                        //printf("time[%u] > (%u + %u): update\n", u32Time, g_taMsgStatus[u32Idx].u32UpdateTime, u32TimeThreshold);
                         goto update;
                     }
 
@@ -936,12 +1011,12 @@ SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
                     {
                         g_taMsgStatus[u32Idx].u32MaxDiscardCnt = g_taMsgStatus[u32Idx].u32CurrDiscardCnt;
                     }
-
+                    /*
                     printf("expired id[%u] for idx[%u] curr_id[%u]: cnt[%u] max_cnt[%u] max_offset[%u]\n", 
                            u32MsgId, u32Idx, g_taMsgStatus[u32Idx].u32CurrMsgId, 
                            g_taMsgStatus[u32Idx].u32CurrDiscardCnt, g_taMsgStatus[u32Idx].u32MaxDiscardCnt, 
                            g_taMsgStatus[u32Idx].u32MaxExpireOffset);
-                    
+                    */
                     goto done;
                 }
                 else
@@ -957,7 +1032,7 @@ SHM_DATA int is_expired_msg(uint32_t u32Idx, uint32_t u32MsgId)
                         g_taMsgStatus[i].u32UpdateTime = u32Time;
                     }
 
-                    printf("update curr_id[%u] for all idx\n", u32MsgId);
+                    //printf("update curr_id[%u] for all idx\n", u32MsgId);
 
                     iRet = 0;
                     goto done;
@@ -979,13 +1054,15 @@ update:
     g_taMsgStatus[u32Idx].u32CurrDiscardCnt = 0;
     g_taMsgStatus[u32Idx].u32UpdateTime = u32Time;
 
-    printf("update idx[%u] curr_id[%u] upd_time[%u]\n", u32Idx, g_taMsgStatus[u32Idx].u32CurrMsgId, g_taMsgStatus[u32Idx].u32UpdateTime);
+    //printf("update idx[%u] curr_id[%u] upd_time[%u]\n", u32Idx, g_taMsgStatus[u32Idx].u32CurrMsgId, g_taMsgStatus[u32Idx].u32UpdateTime);
 
     iRet = 0;
 
 done:
     return iRet;
 }
+
+
 
 static int user_property_set_event_handler(const int devid, const char *request, const int request_len)
 {
@@ -1010,6 +1087,8 @@ static int user_property_set_event_handler(const int devid, const char *request,
     }
 #endif
 
+    //printf("get msg=%s\n", request);
+    
     int iRet = -1;
 
     lite_cjson_t tRoot = {0};
@@ -1026,13 +1105,19 @@ static int user_property_set_event_handler(const int devid, const char *request,
     lite_cjson_t tLightMode = {0};
     //lite_cjson_t tLightType = {0};
 
+#if 0     
+    #ifdef BLEWIFI_LOCAL_SYMPHONY
+    lite_cjson_t tRhyOn = {0};
+    #endif
+#endif
+    
     uint16_t u16OutputFlag = 0;
     uint32_t u32MsgId = g_u32RecvMsgId;
     
     user_example_ctx_t *user_example_ctx = user_example_get_ctx();
-//    printf("Property Set Received, Devid: %d, Request: %s\r\n", devid, request);
+    //printf("Property Set Received, Devid: %d, Request: %s\r\n", devid, request);
 
-    #ifdef ADA_REMOTE_CTRL
+    #if BLEWIFI_REMOTE_CTRL
     /* stop effect operation triggered by key controller*/
     light_effect_timer_stop();
     #endif
@@ -1048,12 +1133,68 @@ static int user_property_set_event_handler(const int devid, const char *request,
         goto done;
     }
 
+#if 0    
+    #ifdef BLEWIFI_LOCAL_SYMPHONY
+    /* Try To Find RhyOn Property */		//LightSwitch   Value:<int>,0,1
+    if (!lite_cjson_object_item(&tRoot, "RhyOn", 5, &tRhyOn)) {
+        EXAMPLE_TRACE("RhyOn Enable : %d\r\n", tRhyOn.value_int);
+
+        if(!is_expired_msg(PROPERTY_RHYON, u32MsgId))
+        {
+            light_ctrl_set_rhyon(tRhyOn.value_int);
+
+            if(tRhyOn.value_int)
+            {
+                if(!light_ctrl_get_switch()){
+                    light_ctrl_set_rhyon(0);
+                    local_symstop();
+                }
+                else
+                {
+                    local_symstart();
+                }
+            }
+            else
+            {
+                osTimerStop(g_tRhythm);
+                
+                local_symstop();
+
+                if(light_ctrl_get_switch())
+                {
+                    light_ctrl_set_switch(1);
+                    SET_BIT(u16OutputFlag, PROPERTY_LIGHTMODE);
+                }
+            }
+    
+            #ifdef ALI_NO_POST_MODE
+            if (!g_certification_mode_flag)
+            #endif
+            {
+                SET_BIT(u16OutputFlag, PROPERTY_RHYON);
+                //iot_update_light_property(u16OutputFlag, u32MsgId);
+            }
+        }
+    }
+    #endif
+#endif
+    
     /* Try To Find LightSwitch Property */		//LightSwitch   Value:<int>,0,1
     if (!lite_cjson_object_item(&tRoot, "LightSwitch", 11, &tLightSwitch)) {
         EXAMPLE_TRACE("LightSwitch Enable : %d\r\n", tLightSwitch.value_int);
 
         if(!is_expired_msg(PROPERTY_LIGHT_SWITCH, u32MsgId))
         {
+#if 0            
+            #ifdef BLEWIFI_LOCAL_SYMPHONY
+            if( 0 == tLightSwitch.value_int )
+            {
+                SET_BIT(u16OutputFlag, PROPERTY_RHYON);
+                light_ctrl_set_rhyon(0);
+                local_symstop();
+            }
+            #endif
+#endif            
             light_ctrl_set_switch(tLightSwitch.value_int);
     
             if (tLightSwitch.value_int && light_effect_get_status())
@@ -1150,6 +1291,16 @@ static int user_property_set_event_handler(const int devid, const char *request,
     if (!lite_cjson_object_item(&tRoot, "LightMode", 9, &tLightMode)) {
         EXAMPLE_TRACE("LightMode: %d\r\n", tLightMode.value_int);
 
+#ifdef BLEWIFI_LOCAL_SYMPHONY        
+        if((1 == tLightMode.value_int) && (1 == g_OpllocalRhyon))
+        {
+            printf("Disable LocalRhyom and clear flag\r\n");
+            local_symstop();
+            g_OpllocalRhyon = 0;
+            g_RunLocalRhyonOnce = 0;            
+        }
+#endif        
+
         if(!is_expired_msg(PROPERTY_LIGHTMODE, u32MsgId))
         {
             if(light_ctrl_get_switch())
@@ -1159,7 +1310,7 @@ static int user_property_set_event_handler(const int devid, const char *request,
                 if((light_ctrl_get_light_type() == LT_RGB) && 
                    (tLightMode.value_int == MODE_CTB))
                 {
-                    printf("mode[%u] not supported\n", tLightMode.value_int);
+                    //printf("mode[%u] not supported\n", tLightMode.value_int);
                 }
                 else
                 {
@@ -1272,7 +1423,7 @@ static int user_property_set_event_handler(const int devid, const char *request,
     
                 if(tColorTemperature.value_int<2000 || tColorTemperature.value_int>7000 )
                 {
-                    printf("[ColorTemperature],Invalid Value:%d\n",tColorTemperature.value_int);
+                    //printf("[ColorTemperature],Invalid Value:%d\n",tColorTemperature.value_int);
                 }
                 else
                 {
@@ -1598,8 +1749,8 @@ static int user_property_get_event_handler(const int devid, const char *request,
         *response = ps8Buf;
         *response_len = u32Offset;
 
-        printf("property_get malloc[%u] len[%u]\n", u32BufSize, *response_len);
-        printf("%s\n\n", *response);
+        //printf("property_get malloc[%u] len[%u]\n", u32BufSize, *response_len);
+        //printf("%s\n\n", *response);
     }
 
     return SUCCESS_RETURN;
@@ -1611,12 +1762,24 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
     const char *reply_value = (reply == NULL) ? ("NULL") : (reply);
     const int reply_value_len = (reply_len == 0) ? (strlen("NULL")) : (reply_len);
 
+    (void)reply_value;
+
+    #if ALI_AUTO_TEST
+    printf("Message Post Reply Received, Devid: %d, Message ID: %d, Code: %d, Reply: %.*s\n\n", devid, msgid, code,
+                  reply_value_len,
+                  reply_value);
+    #else
     EXAMPLE_TRACE("Message Post Reply Received, Devid: %d, Message ID: %d, Code: %d, Reply: %.*s", devid, msgid, code,
                   reply_value_len,
                   reply_value);
+    #endif
 
     if(g_tPrevPostInfo.u8Used)
     {
+        #if (ALI_AUTO_TEST == 3)
+        ATS_POST_SET_TIME(end_time)
+        #endif
+                
         if(code == 200)
         {
             if(msgid == g_tPrevPostInfo.iId)
@@ -1630,6 +1793,15 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
                     extern void Iot_TsSyncEnable(uint8_t u8Enable);
 
                     Iot_TsSyncEnable(1);
+
+                    #if (ALI_AUTO_TEST == 2)
+                    ATS_NET_SET_TIME(http_done)
+                    printf("http_done[%u]\n", ats_stats.net.time.http_done);
+                    ATS_PRINT_CKS_PAIRING_LOG
+                    ATS_NET_CLEAN_TIME
+                    BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_STOP, NULL, 0);
+                    ATS_PAIRING_TIMER_START(5000)
+                    #endif
                 }
 
                 //post_info_clear();
@@ -1639,6 +1811,10 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
             {
                 EXAMPLE_TRACE("msgid[%d] != prev_post_id[%d]\n", msgid, g_tPrevPostInfo.iId);
             }
+
+            #if (ALI_AUTO_TEST == 3)
+            ATS_POST_INC(post_data.pass_count)
+            #endif
         }
         else
         {
@@ -1657,7 +1833,18 @@ static int user_report_reply_event_handler(const int devid, const int msgid, con
             }
 
             // clear buffer/post_info and enable one_shot_arp in user_disconnected_event_handler()
+
+            #if (ALI_AUTO_TEST == 3)
+            ATS_POST_INC(post_data.fail_count)
+            #endif
         }
+
+        #if (ALI_AUTO_TEST == 3)
+        ATS_PRINT_ONE_LOG
+        ATS_CLEAN_FAIL_STATS
+
+        ATS_PRINT_CKS_FINAL_LOG
+        #endif
     }
 
     return 0;
@@ -1717,6 +1904,66 @@ static int user_initialized(const int devid)
   * 0 - new firmware exist
   *
   */
+#if 1
+static int user_fota_event_handler(int type, const char *version)
+{
+    uint8_t u8aDefBuffer[128] = {0};
+    int iDefBufSize = sizeof(u8aDefBuffer);
+    uint8_t *buffer = NULL;
+    int buffer_length = 1024;
+
+    if (type == 0) {
+        char s8aFrimwareVer[IOTX_FIRMWARE_VER_LEN+1] = {0};
+        user_example_ctx_t *user_example_ctx = user_example_get_ctx();
+
+        while(buffer_length > iDefBufSize)
+        {
+            buffer = (uint8_t *)HAL_Malloc(buffer_length);
+    
+            if(buffer)
+            {
+                break;
+            }
+    
+            buffer_length = buffer_length >> 1;
+        }
+    
+        if(buffer)
+        {
+            printf("malloc ota_buffer[%u]\n", buffer_length);
+        }
+        else
+        {
+            buffer = u8aDefBuffer;
+            buffer_length = iDefBufSize;
+    
+            printf("use default ota_buffer[%u]\n", buffer_length);
+        }
+
+        HAL_GetFirmwareVersion(s8aFrimwareVer);
+
+        #if (ALI_AUTO_TEST == 1)
+        printf(" Original RSSI is %d \n", wpa_driver_netlink_get_rssi());
+        #endif
+
+        printf("\nCur Version: %s\n", s8aFrimwareVer);
+        printf("New Version: %s\n\n", version);
+
+        IOT_Linkkit_Query(user_example_ctx->master_devid, ITM_MSG_QUERY_FOTA_DATA, (unsigned char *)buffer, buffer_length);
+    }
+
+    if(buffer)
+    {
+        if(buffer != u8aDefBuffer)
+        {
+            printf("free ota_buffer[%u]\n", buffer_length);
+            HAL_Free(buffer);
+        }
+    }
+
+    return 0;
+}
+#else
 static int user_fota_event_handler(int type, const char *version)
 {
     char buffer[128] = {0};
@@ -1736,6 +1983,7 @@ static int user_fota_event_handler(int type, const char *version)
 
     return 0;
 }
+#endif
 
 #ifdef ALI_POST_CTRL
 SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
@@ -1863,6 +2111,16 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
     }
     
     u32Offset = sprintf( property_payload, "{");
+
+    #ifdef BLEWIFI_LOCAL_SYMPHONY
+    if (CHK_BIT(ptProp->u16Flag, PROPERTY_RHYON))
+    {
+        if (already_wrt_flag)
+            u32Offset += sprintf( property_payload +u32Offset, ",");
+        u32Offset += sprintf( property_payload +u32Offset, "\"RhyOn\":%d", light_ctrl_get_rhyon());
+        already_wrt_flag = 1;
+    }
+    #endif
     
     if (CHK_BIT(ptProp->u16Flag, PROPERTY_LIGHT_SWITCH))
     {
@@ -1959,6 +2217,13 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
     printf("\npost for msg_id[%u]: buf_size[%u] len[%u]\n", ptProp->u32MsgId, u32BufSize, u32Offset);
     printf("%s\n\n", property_payload);
 
+    #if (ALI_AUTO_TEST == 3)
+    printf(" Original RSSI is %d \n", wpa_driver_netlink_get_rssi());
+
+    ATS_POST_SET_TIME(start_time)
+    ATS_POST_INC(post_data.count)
+    #endif
+
     iRes = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_PROPERTY,
                              (unsigned char *)property_payload, u32Offset);
 
@@ -1966,6 +2231,12 @@ SHM_DATA void user_post_property(IoT_Properity_t *ptProp)
     {
         post_info_update(iRes);
     }
+    #if (ALI_AUTO_TEST == 3)
+    else
+    {
+        ATS_POST_INC(post_data.fail_count)
+    }
+    #endif
 
 done:
     if(property_payload)
@@ -1999,6 +2270,7 @@ void user_post_event(void)
 
     res = IOT_Linkkit_TriggerEvent(user_example_ctx->master_devid, event_id, strlen(event_id),
                                    event_payload, strlen(event_payload));
+    (void)res;
     EXAMPLE_TRACE("Post Event Message ID: %d", res);
 }
 
@@ -2011,6 +2283,7 @@ void user_deviceinfo_update(void)
 
     res = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_DEVICEINFO_UPDATE,
                              (unsigned char *)device_info_update, strlen(device_info_update));
+    (void)res;
     EXAMPLE_TRACE("Device Info Update Message ID: %d", res);
 }
 
@@ -2022,6 +2295,7 @@ void user_deviceinfo_delete(void)
 
     res = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_DEVICEINFO_DELETE,
                              (unsigned char *)device_info_delete, strlen(device_info_delete));
+    (void)res;
     EXAMPLE_TRACE("Device Info Delete Message ID: %d", res);
 }
 
@@ -2033,6 +2307,7 @@ void user_post_raw_data(void)
 
     res = IOT_Linkkit_Report(user_example_ctx->master_devid, ITM_MSG_POST_RAW_DATA,
                              raw_data, 7);
+    (void)res;
     EXAMPLE_TRACE("Post Raw Data Message ID: %d", res);
 }
 
@@ -2042,6 +2317,12 @@ int ali_linkkit_init(user_example_ctx_t *user_example_ctx)
 
     iotx_linkkit_dev_meta_info_t    master_meta_info;
 
+#if 1
+    HAL_GetProductKey(master_meta_info.product_key);
+    HAL_GetProductSecret(master_meta_info.product_secret);
+    HAL_GetDeviceName(master_meta_info.device_name);
+    HAL_GetDeviceSecret(master_meta_info.device_secret);
+#else
     HAL_GetProductKey(DEMO_PRODUCT_KEY);
     HAL_GetProductSecret(DEMO_PRODUCT_SECRET);
     HAL_GetDeviceName(DEMO_DEVICE_NAME);
@@ -2051,6 +2332,7 @@ int ali_linkkit_init(user_example_ctx_t *user_example_ctx)
     memcpy(master_meta_info.product_secret, DEMO_PRODUCT_SECRET, strlen(DEMO_PRODUCT_SECRET));
     memcpy(master_meta_info.device_name, DEMO_DEVICE_NAME, strlen(DEMO_DEVICE_NAME));
     memcpy(master_meta_info.device_secret, DEMO_DEVICE_SECRET, strlen(DEMO_DEVICE_SECRET));
+#endif
 
     IOT_RegisterCallback(ITE_CONNECT_SUCC, user_connected_event_handler);
     IOT_RegisterCallback(ITE_DISCONNECTED, user_disconnected_event_handler);
@@ -2093,7 +2375,7 @@ int ali_linkkit_init(user_example_ctx_t *user_example_ctx)
     user_example_ctx->master_devid = IOT_Linkkit_Open(IOTX_LINKKIT_DEV_TYPE_MASTER, &master_meta_info);
     if (user_example_ctx->master_devid < 0)
     {
-        printf("IOT_Linkkit_Open Failed\n");
+        //printf("IOT_Linkkit_Open Failed\n");
         return -1;
     }
     return 0;

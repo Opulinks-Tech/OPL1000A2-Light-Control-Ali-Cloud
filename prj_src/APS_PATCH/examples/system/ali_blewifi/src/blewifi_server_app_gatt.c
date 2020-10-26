@@ -520,6 +520,15 @@ SHM_DATA static void BleWifi_Ble_ServerAppGattMsgHandler_NotifyCfm(TASK task, ME
 
 static void BleWifi_Ble_ServerAppGattMsgHandler_InitCfm(TASK task, MESSAGEID id, MESSAGE message)
 {
+#if 1
+    gBleWifiSvcUuid = BLEWIFI_BLE_UUID_SERVICE;
+    gBleWifiDataInUuid = BLEWIFI_BLE_UUID_DATA_IN;
+    gBleWifiDataInCharVal[3] = UINT16_LO(gBleWifiDataInUuid);
+    gBleWifiDataInCharVal[4] = UINT16_HI(gBleWifiDataInUuid);
+    gBleWifiDataOutUuid = BLEWIFI_BLE_UUID_DATA_OUT;
+    gBleWifiDataOutCharVal[3] = UINT16_LO(gBleWifiDataOutUuid);
+    gBleWifiDataOutCharVal[4] = UINT16_HI(gBleWifiDataOutUuid);
+#else
     T_MwFim_GP11_BleServiceUUID tBleServiceUUID;
     
     // !!! after LeGattInit
@@ -538,7 +547,7 @@ static void BleWifi_Ble_ServerAppGattMsgHandler_InitCfm(TASK task, MESSAGEID id,
     gBleWifiDataOutUuid = tBleServiceUUID.uwDataOutUUID;
     gBleWifiDataOutCharVal[3] = UINT16_LO(gBleWifiDataOutUuid);
     gBleWifiDataOutCharVal[4] = UINT16_HI(gBleWifiDataOutUuid);
-    
+#endif
     gGattSvc = LeGattRegisterService(gGattSvcDb, sizeof(gGattSvcDb) / sizeof(LE_GATT_ATTR_T));
     
     if (gGattSvc)

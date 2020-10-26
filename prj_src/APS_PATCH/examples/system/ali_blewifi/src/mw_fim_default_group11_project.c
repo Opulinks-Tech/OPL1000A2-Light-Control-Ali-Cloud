@@ -14,6 +14,7 @@ Head Block of The File
 ***********************/
 // Sec 0: Comment block of the file
 
+#if 0
 
 // Sec 1: Include File
 #include "mw_fim_default_group11.h"
@@ -119,3 +120,6 @@ Declaration of static Global Variables & Functions
 C Functions
 ***********/
 // Sec 8: C Functions
+
+#endif
+

@@ -23,7 +23,7 @@ static uint8_t g_ps[BZ_DEV_PRODUCT_SECRET_LEN]  = { 0 };
 static uint8_t g_ps_len = 0;
 bool g_dn_complete = false;
 
-SHM_DATA auth_t g_auth;
+/*SHM_DATA */auth_t g_auth;
 
 /*static void on_timeout(void *arg1, void *arg2)
 {

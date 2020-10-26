@@ -17,7 +17,7 @@
 /*
 FIM version
 */
-#define MW_FIM_VER11_PROJECT            0x04    // 0x00 ~ 0xFF
+#define MW_FIM_VER11_PROJECT            0x05    // 0x00 ~ 0xFF
 
 /*
 Smart sleep
@@ -26,16 +26,8 @@ Smart sleep
 
 /*
 RF Power
-
-.-----------------.----------------.----------------.
-|                 |  BLE Low Power | BLE High Power |
-:-----------------+----------------+----------------:
-| WIFI Low power  |  0x00          | 0x0F           |
-:-----------------+----------------+----------------:
-| WIFI High power |  0xF0          | 0xFF           |
-'-----------------'----------------'----------------'
 */
-#define BLEWIFI_COM_RF_POWER_SETTINGS   (0xC0)
+#define BLEWIFI_COM_RF_POWER_SETTINGS   (0xD0) //(0xC0)
 
 /*
 SNTP
@@ -185,7 +177,7 @@ FIM version
 #define PROPERITY_LEN_MAX (64)
 
 /* Extention of Device Schedule (Local Timer) */
-#define BLEWIFI_SCHED_EXT
+//#define BLEWIFI_SCHED_EXT
 
 /*
 FIM version
@@ -209,6 +201,17 @@ FIM version
 
 #define ALI_POST_CTRL
 #define ALI_TIMESTAMP
+
+/*
+    BLEWIFI_REMOTE_CTRL == 0: No Remote Ctrl
+    BLEWIFI_REMOTE_CTRL == 1: ADA Remote Ctrl
+    BLEWIFI_REMOTE_CTRL == 2: OPL Remote Ctrl
+*/
+#if BLEWIFI_REMOTE_CTRL
+    #define IOT_RB_MUTEX
+    #define LIGHT_CTRL_MUTEX
+    #define BLEWIFI_MIN_LOG
+#endif
 
 //#define BLEWIFI_LIGHT_CTRL
 //#define BLEWIFI_LIGHT_DRV

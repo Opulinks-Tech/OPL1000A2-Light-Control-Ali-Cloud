@@ -10,6 +10,8 @@
 #include "semphr.h"
 
 #include <aos/aos.h>
+#undef printf
+#define printf(...)
 
 
 struct timeval {

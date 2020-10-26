@@ -41,12 +41,7 @@
 #include "hal_pin_def.h"
 #include "mw_ota.h"
 #include "ali_linkkitsdk_decl.h"
-
-#ifdef ADA_REMOTE_CTRL
-#include "ada_ucmd_parser.h"
-#include "ada_uart_transport.h"
-#include "uart_cmd_task.h"
-#endif
+#include "sys_common_api_patch.h"
 
 #ifdef ALI_BLE_WIFI_PROVISION
 #include "cmsis_os.h"
@@ -60,12 +55,12 @@
 #include "infra_compat.h"
 
 
-#define hal_emerg(...)      HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
-#define hal_crit(...)       HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
-#define hal_err(...)        HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
-#define hal_warning(...)    HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
-#define hal_info(...)       HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
-#define hal_debug(...)      HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_emerg(...)      //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_crit(...)       //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_err(...)        //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_warning(...)    //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_info(...)       //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_debug(...)      //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
 
 #ifdef LED_CALLBACK_INFO_DEBUG
 #define LEDC_DEBUG(FORMAT, ARGS) printf(FORMAT, ARGS)
@@ -73,7 +68,7 @@
 #define LEDC_DEBUG(FORMAT, ARGS)
 #endif
 
-SHM_DATA breeze_dev_info_t dinfo;
+/*SHM_DATA */breeze_dev_info_t dinfo;
 extern void linkkit_event_monitor(int event);
 #endif
 
@@ -242,8 +237,8 @@ void Rhythm_Random_Color_Init(void)
 void light_type_discern(void)
 {
     Hal_Pin_ConfigSet(9, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
-    Hal_Pin_ConfigSet(10, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
-    Hal_Pin_ConfigSet(11, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+    //Hal_Pin_ConfigSet(10, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+    //Hal_Pin_ConfigSet(11, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
     uint8_t lighttype = 0;
     light_ctrl_init();
 
@@ -251,12 +246,12 @@ void light_type_discern(void)
     Hal_Pwm_ClockSourceSet(HAL_PWM_CLK_22M);
     cancel_default_breath();
 
-    if(Hal_Vic_GpioInput(GPIO_IDX_09))
-        lighttype = lighttype | 4;
-    if(Hal_Vic_GpioInput(GPIO_IDX_10))
-        lighttype = lighttype | 2;
-    if(Hal_Vic_GpioInput(GPIO_IDX_11))
-        lighttype = lighttype | 1;
+    //if(Hal_Vic_GpioInput(GPIO_IDX_09))
+    //    lighttype = lighttype | 4;
+    //if(Hal_Vic_GpioInput(GPIO_IDX_10))
+    //    lighttype = lighttype | 2;
+    //if(Hal_Vic_GpioInput(GPIO_IDX_11))
+    //    lighttype = lighttype | 1;
 
 #ifdef BLEWIFI_RGB_LED
     lighttype = TMP_LT_RGB;
@@ -305,8 +300,8 @@ void light_type_discern(void)
     }
 
     Hal_Pin_ConfigSet(9, PIN_TYPE_NONE, PIN_DRIVING_LOW);
-    Hal_Pin_ConfigSet(10, PIN_TYPE_NONE, PIN_DRIVING_LOW);
-    Hal_Pin_ConfigSet(11, PIN_TYPE_NONE, PIN_DRIVING_LOW);
+    //Hal_Pin_ConfigSet(10, PIN_TYPE_NONE, PIN_DRIVING_LOW);
+    //Hal_Pin_ConfigSet(11, PIN_TYPE_NONE, PIN_DRIVING_LOW);
 
     if(iot_apply_cfg(1))
     {
@@ -319,16 +314,22 @@ void light_type_discern(void)
 
 void fw_ver_get(char *sBuf, uint32_t u32BufLen)
 {
+#if (ALI_AUTO_TEST == 1)
+#else
     char *saMonth[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     char s8aMonth[8] = {0};
     int iYear = 0;
     int iMonth = 0;
     int iDay = 0;
     int iNum = 0;
+#endif
+
     uint16_t u16ProjectId = 0;
     uint16_t u16ChipId = 0;
     uint16_t u16FirmwareId = 0;
     
+#if (ALI_AUTO_TEST == 1)
+#else
     iNum = sscanf(__DATE__, "%s %d %d", s8aMonth, &iDay, &iYear); // build date: e.g. "Jan 30 2020"
 
     if(iNum > 0)
@@ -344,22 +345,28 @@ void fw_ver_get(char *sBuf, uint32_t u32BufLen)
             }
         }
     }
+#endif
 
     MwOta_VersionGet(&u16ProjectId, &u16ChipId, &u16FirmwareId);
 
+#if (ALI_AUTO_TEST == 1)
+    snprintf(sBuf, u32BufLen, "%s-20201014.%u", 
+             SYSINFO_APP_VERSION, 
+             u16FirmwareId);
+#else
     snprintf(sBuf, u32BufLen, "%s-%04u%02u%02u.%u", 
              SYSINFO_APP_VERSION, 
              iYear, iMonth, iDay, 
              u16FirmwareId);
-
+#endif
     return;
 }
 
 extern void HAL_SetFirmwareVersion(_IN_ char *FwVersion);
-SHM_DATA void BleWifiAppInit(void)
+/*SHM_DATA */void BleWifiAppInit(void)
 {
     T_MwFim_SysMode tSysMode;
-    T_MwFim_GP11_PowerSaving tPowerSaving;
+    //T_MwFim_GP11_PowerSaving tPowerSaving;
 
     gTheOta = 0;
 
@@ -374,14 +381,14 @@ SHM_DATA void BleWifiAppInit(void)
         // if fail, get the default value
         memcpy(&tSysMode, &g_tMwFimDefaultSysMode, MW_FIM_SYS_MODE_SIZE);
     }
-
+#if 0
     // get the settings of power saving
     if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP11_PROJECT_POWER_SAVING, 0, MW_FIM_GP11_POWER_SAVING_SIZE, (uint8_t*)&tPowerSaving))
     {
         // if fail, get the default value
         memcpy(&tPowerSaving, &g_tMwFimDefaultGp11PowerSaving, MW_FIM_GP11_POWER_SAVING_SIZE);
     }
-
+#endif
     // only for the user mode
     if ((tSysMode.ubSysMode == MW_FIM_SYS_MODE_INIT) || (tSysMode.ubSysMode == MW_FIM_SYS_MODE_USER))
     {
@@ -428,7 +435,13 @@ SHM_DATA void BleWifiAppInit(void)
         //    ps_smart_sleep(tPowerSaving.ubPowerSaving);
 
         /* RF Power settings */
+        #if 1
+        BleWifi_RFPowerSetting(BLEWIFI_COM_RF_POWER_SETTINGS);
+        #else
         BleWifi_RFPowerSetting(tPowerSaving.ubRFPower);
+        #endif
+
+        sys_set_rf_temp_cal_mode(true);
 
         // init device schedule
         BleWifi_Ctrl_DevSchedInit();
@@ -438,7 +451,7 @@ SHM_DATA void BleWifiAppInit(void)
             // if fail, get the default value
             memcpy(&g_tAliyunInfo, &g_tMwFimDefaultGp17AliyunInfo, MW_FIM_GP17_ALIYUN_INFO_SIZE);
         }
-        printf("\nFIM_RegionID:%d\n", g_tAliyunInfo.ulRegionID);
+        //printf("\nFIM_RegionID:%d\n", g_tAliyunInfo.ulRegionID);
 
         #if 1
         if(MwFim_FileRead(MW_FIM_IDX_GP17_PROJECT_ALIYUN_MQTT_CFG, 0, MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE, (uint8_t*)&g_tAliyunMqttCfg) != MW_FIM_OK)
@@ -447,7 +460,7 @@ SHM_DATA void BleWifiAppInit(void)
             memcpy(&g_tAliyunMqttCfg, &g_tMwFimDefaultGp17AliyunMqttCfg, MW_FIM_GP17_ALIYUN_MQTT_CFG_SIZE);
         }
 
-        printf("\nFIM_MQTT_URL:[%s]\n", g_tAliyunMqttCfg.s8aUrl);
+        //printf("\nFIM_MQTT_URL:[%s]\n", g_tAliyunMqttCfg.s8aUrl);
 
         if(g_tAliyunMqttCfg.s8aUrl[0])
         {
@@ -462,6 +475,11 @@ SHM_DATA void BleWifiAppInit(void)
         #else
         iotx_guider_set_dynamic_region(g_tAliyunInfo.ulRegionID);
         #endif
+
+        #ifdef BLEWIFI_LOCAL_SYMPHONY
+        extern void local_syminit();
+        local_syminit();
+        #endif
     }
 
     // update the system mode
@@ -469,11 +487,6 @@ SHM_DATA void BleWifiAppInit(void)
 
     // add app cmd
     app_at_cmd_add();
-
-    #ifdef ADA_REMOTE_CTRL
-    uart_cmd_init(UART_NUM_0, 9600, ada_ctrl_uart_input_impl);
-    uart_cmd_handler_register(uart_cmd_process, NULL);
-    #endif
 
     //light pwm init
     light_type_discern();

@@ -168,7 +168,7 @@ SHM_DATA svr_key_info *is_legal_key(CoAPContext *ctx, const char *keyprefix, int
     return NULL;
 }
 
-SHM_DATA void alcs_rec_auth(CoAPContext *ctx, const char *paths, NetworkAddr *from, CoAPMessage *resMsg)
+void alcs_rec_auth(CoAPContext *ctx, const char *paths, NetworkAddr *from, CoAPMessage *resMsg)
 {
     int seqlen, datalen;
     char *seq, *data;
@@ -516,7 +516,7 @@ SHM_DATA void recv_msg_handler(CoAPContext *context, const char *path, NetworkAd
     }
 }
 
-SHM_DATA int alcs_resource_register_secure(CoAPContext *context, const char *pk, const char *dn, const char *path,
+int alcs_resource_register_secure(CoAPContext *context, const char *pk, const char *dn, const char *path,
                                   unsigned short permission,
                                   unsigned int ctype, unsigned int maxage, CoAPRecvMsgHandler callback)
 {
@@ -601,7 +601,7 @@ void alcs_auth_list_deinit(void)
     }
 }
 
-SHM_DATA void alcs_rec_heart_beat(CoAPContext *ctx, const char *path, NetworkAddr *remote, CoAPMessage *request)
+void alcs_rec_heart_beat(CoAPContext *ctx, const char *path, NetworkAddr *remote, CoAPMessage *request)
 {
     struct list_head *ctl_head = get_svr_session_list(ctx);
     session_item *session = NULL;

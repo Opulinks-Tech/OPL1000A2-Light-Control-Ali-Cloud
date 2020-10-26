@@ -35,7 +35,7 @@ Declaration of Global Variables & Functions
 ********************************************/
 // Sec 4: declaration of global variable
 // Aliyun device
-SHM_DATA const T_MwFim_GP12_AliyunDevice g_tMwFimDefaultGp12AliyunDevice =
+const T_MwFim_GP12_AliyunDevice g_tMwFimDefaultGp12AliyunDevice =
 {
     .ulProductId           = ALI_PRODUCT_ID,
     .ubaProductKey         = ALI_PRODUCT_KEY,

@@ -305,7 +305,7 @@ done:
     
     return iRet;
 }
-
+#if 0
 int app_at_cmd_sys_dtim_time(char *buf, int len, int mode)
 {
     int iRet = 0;
@@ -359,7 +359,7 @@ done:
     
     return iRet;
 }
-
+#endif
 int app_at_cmd_sys_ali_cfg(char *buf, int len, int mode)
 {
     int iRet = 0;
@@ -493,12 +493,124 @@ int app_at_cmd_sys_do_wifi_ota(char *buf, int len, int mode)
 }
 #endif
 
+#if BLEWIFI_REMOTE_CTRL
+#include <ctype.h>
+static int app_at_cmd_eui(char *buf, int len, int mode)
+{
+    int iRet = 0;
+    int argc = 0;
+    char *argv[AT_MAX_CMD_ARGS] = {0};
+
+    switch (mode)
+    {
+        case AT_CMD_MODE_SET:
+        {
+            if (!at_cmd_buf_to_argc_argv(buf, &argc, argv, AT_MAX_CMD_ARGS))
+            {
+                //printf("at_cmd_buf_to_argc_argv\n");
+                goto done;
+            }
+            for(int i=0;i<2&&argv[1][i]!='\0';i++)
+                argv[1][i]=tolower(argv[1][i]);
+            if (strcmp(argv[1],"rm")==0)
+            {
+                if (argc<4)
+                    goto done;
+                extern void key_cmd_handler(uint8_t key_value , uint8_t key_state);
+                uint8_t key=strtoul(argv[2],NULL,0);
+                if (key==5||key==6)
+                    key+=60;
+                else if (key==41)
+                    key=43;
+                else if (key==44)
+                    key=41;
+                key_cmd_handler(key,strtoul(argv[3],NULL,0));
+//                printf("%d %d\r\n",strtoul(argv[2],NULL,0),strtoul(argv[3],NULL,0));
+            }
+            else
+                goto done;
+        }
+            break;
+
+        default:
+            goto done;
+    }
+
+    iRet = 1;
+
+done:
+    if(iRet)
+    {
+        msg_print_uart1("OK\r\n");
+    }
+    else
+    {
+        msg_print_uart1("ERROR\r\n");
+    }
+    
+    return iRet;
+}
+#endif
+
+#ifdef BLEWIFI_LOCAL_SYMPHONY
+#include "local-symphony.h"
+#include "light_control.h"
+
+        
+extern int Rhyon_handler(const char *request, const int request_len);        
+
+static void test_symphone(uint32_t strength)
+{
+    char buf[100];
+    msg_print_uart1("\r\nSymphone %d\r\n",strength);
+
+
+    snprintf(buf, 100, "{\"Saturation\":%d,\"Hue\":%d,\"Value\":%d,\"LightDuration\":%d}",
+                 100, rand() % 360, rand() % 100, strength % 100 );
+    
+    Rhyon_handler(buf,strlen(buf));
+}
+
+static int app_at_cmd_symp(char *buf, int len, int mode)
+{
+    msg_print_uart1("Symphony Start\r\n");
+//    Symp_Init(test_symphone);
+    Symp_Start();
+//	  test_symphone(50);
+    
+    return 1;
+}
+
+void local_syminit(void)
+{
+    Symp_Init(test_symphone);
+}
+
+void local_symstart(void)
+{
+    Symp_Start();
+}
+
+void local_symstop(void)
+{
+    Symp_Stop();
+}
+#endif //#ifdef BLEWIFI_LOCAL_SYMPHONY
+
 at_command_t g_taAppAtCmd[] =
 {
-    { "at+readfim",     app_at_cmd_sys_read_fim,    "Read FIM data" },
-    { "at+writefim",    app_at_cmd_sys_write_fim,   "Write FIM data" },
-    { "at+dtim",        app_at_cmd_sys_dtim_time,   "Wifi DTIM" },
+//    { "at+readfim",     app_at_cmd_sys_read_fim,    "Read FIM data" },
+//    { "at+writefim",    app_at_cmd_sys_write_fim,   "Write FIM data" },
+    //{ "at+dtim",        app_at_cmd_sys_dtim_time,   "Wifi DTIM" },
     { "at+alicfg",      app_at_cmd_sys_ali_cfg,     "Aliyun Configuration" },
+
+    #ifdef BLEWIFI_LOCAL_SYMPHONY
+    { "at+symp",            app_at_cmd_symp,                   "Symphony start" },
+    #endif
+
+    #if BLEWIFI_REMOTE_CTRL
+    { "at+eui",         app_at_cmd_eui,             "ex UI" },
+    #endif
     
 #if (WIFI_OTA_FUNCTION_EN == 1)
     { "at+ota",         app_at_cmd_sys_do_wifi_ota, "Do Wifi OTA" },

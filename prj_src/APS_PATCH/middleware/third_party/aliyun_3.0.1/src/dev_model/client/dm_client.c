@@ -9,6 +9,8 @@
     #include "iotx_log_report.h"
 #endif
 
+#undef printf
+#define printf(...)
 static dm_client_uri_map_t g_dm_client_uri_map[] = {
 #if !defined(DEVICE_MODEL_RAWDATA_SOLO)
     {DM_URI_THING_EVENT_POST_REPLY_WILDCARD,  DM_URI_SYS_PREFIX,         IOTX_DM_DEVICE_ALL, (void *)dm_client_thing_event_post_reply             },

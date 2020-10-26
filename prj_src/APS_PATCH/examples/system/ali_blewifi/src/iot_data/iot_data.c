@@ -307,10 +307,10 @@ void Iot_Data_RxTask(void *args)
             //if (false == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_WAIT_ALI_RESET))
             if(1)
             {
-                printf("BLEWIFI_CTRL_EVENT_BIT_UNBIND\r\n");
+                //printf("BLEWIFI_CTRL_EVENT_BIT_UNBIND\r\n");
                 if (user_example_ctx->master_devid >= 0)
                 {
-                    printf("user_example_ctx->master_devid == 0\r\n");
+                    //printf("user_example_ctx->master_devid == 0\r\n");
                     IOT_Linkkit_Close(user_example_ctx->master_devid);
                     HAL_ResetAliBindflag();
                 }
@@ -358,8 +358,8 @@ void Iot_Data_RxTask(void *args)
 
                 if(true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1))
                 {
-                #if ALI_TOKEN_FROM_DEVICE        
-                    awss_cmp_local_init(AWSS_LC_INIT_SUC);			
+                #if ALI_TOKEN_FROM_DEVICE
+                    awss_cmp_local_init(AWSS_LC_INIT_SUC);
                     awss_suc_notify_stop();
                     awss_suc_notify();
                 #else
@@ -367,8 +367,8 @@ void Iot_Data_RxTask(void *args)
 
                     uint8_t rsp[] = { 0x01, 0x01, 0x01 };
                     tx_func_indicate(BZ_CMD_STATUS, rsp, sizeof(rsp));
-                #endif        
-                    BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1, false);				
+                #endif
+                    BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_ALI_WIFI_PRO_1, false);
                 }
             #endif
 
@@ -376,17 +376,17 @@ void Iot_Data_RxTask(void *args)
                 res = ali_linkkit_init(user_example_ctx);
                 if (res < 0)
                 {
-                    printf("ali_linkkit_init Failed\n");
+                    //printf("ali_linkkit_init Failed\n");
                     //osDelay(ALI_YUN_LINKKIT_DELAY);
                     //continue;
                 }
                 
                 // init behavior
-                printf("BLEWIFI_CTRL_EVENT_BIT_LINK_CONN\r\n");           
+                //printf("BLEWIFI_CTRL_EVENT_BIT_LINK_CONN\r\n");
                 //Start Connect Aliyun Server
                 res = IOT_Linkkit_Connect(user_example_ctx->master_devid);
                 if (res < 0) {
-                    printf("IOT_Linkkit_Connect Failed\n");
+                    //printf("IOT_Linkkit_Connect Failed\n");
                     IOT_Linkkit_Close(user_example_ctx->master_devid);
 
                     //printf("lwip_one_shot_arp_enable\n");
@@ -395,16 +395,18 @@ void Iot_Data_RxTask(void *args)
                     //osDelay(ALI_YUN_LINKKIT_DELAY);
                     //continue;
                 }else{
-                    printf("BLEWIFI_CTRL_EVENT_BIT_IOT_INIT true\r\n"); 
+                    //printf("BLEWIFI_CTRL_EVENT_BIT_IOT_INIT true\r\n"); 
                     BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_IOT_INIT, true);
+
+                    #ifdef ALI_TIMESTAMP
                     Iot_TsSyncEnable(0);
+                    #endif
                 }
             }
 
             goto done;
         }
 
-        //else
         {
             if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_LINK_CONN))
             {
@@ -423,13 +425,14 @@ void Iot_Data_RxTask(void *args)
             {
                 //osDelay(ALI_YUN_LINKKIT_DELAY);
             }
-        }  
+        }
     }
 
 done:
     return;
 }
 #else //#ifdef ALI_SINGLE_TASK
+#error "It's necessary to update Iot_Data_RxTask."
 void Iot_Data_RxTask(void *args)
 {
     int res = 0;
@@ -466,7 +469,7 @@ void Iot_Data_RxTask(void *args)
             }
                 
                 // init behavior
-                printf("BLEWIFI_CTRL_EVENT_BIT_LINK_CONN\r\n");           
+                printf("BLEWIFI_CTRL_EVENT_BIT_LINK_CONN\r\n");
                 //Start Connect Aliyun Server
                 res = IOT_Linkkit_Connect(user_example_ctx->master_devid);
                 if (res < 0) {
@@ -479,7 +482,7 @@ void Iot_Data_RxTask(void *args)
                     BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_IOT_INIT, true);
                     BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_UNBIND, false);
                 }
-            }     
+            }
         }
         else
         {  
@@ -536,7 +539,7 @@ void Iot_Data_Init(void)
 #endif
 
 #if (IOT_DEVICE_DATA_RX_EN == 1)
-    aos_kv_init();	
+    aos_kv_init();
     hal_ali_netlink_task_init();
     Iot_Data_RxInit();
 #endif

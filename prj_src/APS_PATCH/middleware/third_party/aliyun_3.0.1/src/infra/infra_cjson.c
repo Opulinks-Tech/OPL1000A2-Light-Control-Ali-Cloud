@@ -1555,7 +1555,7 @@ SHM_DATA char  *lite_cjson_print_unformatted(lite_cjson_item_t *item)
 }
 
 /* Delete a cJSON structure. */
-SHM_DATA void lite_cjson_delete(lite_cjson_item_t *item)
+/*SHM_DATA */void lite_cjson_delete(lite_cjson_item_t *item)
 {
     lite_cjson_item_t *next = NULL;
     while (item != NULL) {
@@ -1680,7 +1680,7 @@ SHM_DATA static lite_cjson_item_t *cJSON_New_Item(const internal_hooks *const ho
     return node;
 }
 
-SHM_DATA lite_cjson_item_t *lite_cjson_create_null(void)
+/*SHM_DATA */lite_cjson_item_t *lite_cjson_create_null(void)
 {
     lite_cjson_item_t *item = cJSON_New_Item(&global_hooks);
     if (item) {
@@ -1739,7 +1739,7 @@ SHM_DATA lite_cjson_item_t *lite_cjson_create_number(double num)
 
     return item;
 }
-SHM_DATA lite_cjson_item_t *lite_cjson_create_string(const char *string)
+/*SHM_DATA */lite_cjson_item_t *lite_cjson_create_string(const char *string)
 {
     lite_cjson_item_t *item = cJSON_New_Item(&global_hooks);
     if (item) {
@@ -1754,7 +1754,7 @@ SHM_DATA lite_cjson_item_t *lite_cjson_create_string(const char *string)
     return item;
 }
 
-SHM_DATA lite_cjson_item_t *lite_cjson_create_array(void)
+/*SHM_DATA */lite_cjson_item_t *lite_cjson_create_array(void)
 {
     lite_cjson_item_t *item = cJSON_New_Item(&global_hooks);
     if (item) {
@@ -1764,7 +1764,7 @@ SHM_DATA lite_cjson_item_t *lite_cjson_create_array(void)
     return item;
 }
 
-SHM_DATA lite_cjson_item_t *lite_cjson_create_object(void)
+/*SHM_DATA */lite_cjson_item_t *lite_cjson_create_object(void)
 {
     lite_cjson_item_t *item = cJSON_New_Item(&global_hooks);
     if (item) {

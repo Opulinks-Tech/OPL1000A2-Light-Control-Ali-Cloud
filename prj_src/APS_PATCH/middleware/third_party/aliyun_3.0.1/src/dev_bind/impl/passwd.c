@@ -12,6 +12,8 @@ extern "C" {
 uint8_t aes_random[RANDOM_MAX_LEN] = {0};
 uint8_t g_token_type = TOKEN_TYPE_INVALID;
 
+#undef printf
+#define printf(...)
 void zconfig_dump_hex(uint8_t *data, int len, int tab_num)
 {
 #if (CONFIG_BLDTIME_MUTE_DBGLOG)

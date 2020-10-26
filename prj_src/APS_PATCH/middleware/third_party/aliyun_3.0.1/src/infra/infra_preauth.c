@@ -225,6 +225,27 @@ SHM_DATA int preauth_get_connection_info(iotx_mqtt_region_types_t region, iotx_d
     httpc_data.response_buf = response_buff;
     httpc_data.response_buf_len = sizeof(response_buff);
 
+#ifdef ALI_HTTP_COMPATIBLE
+    char *sCaCrt = NULL;
+
+    if(g_u8UseHttp)
+    {
+        http_port = 80;
+    }
+    else
+    {
+        http_port = 443;
+        sCaCrt = iotx_ca_crt;
+    }
+
+    res = httpclient_common_(&httpc,
+                            http_url,
+                            http_port,
+                            sCaCrt,
+                            HTTPCLIENT_POST,
+                            CONFIG_GUIDER_AUTH_TIMEOUT,
+                            &httpc_data);
+#else //#ifdef ALI_HTTP_COMPATIBLE
     res = httpclient_common_(&httpc,
                             http_url,
                             http_port,
@@ -236,6 +257,8 @@ SHM_DATA int preauth_get_connection_info(iotx_mqtt_region_types_t region, iotx_d
                             HTTPCLIENT_POST,
                             CONFIG_GUIDER_AUTH_TIMEOUT,
                             &httpc_data);
+#endif //#ifdef ALI_HTTP_COMPATIBLE
+
     if (res < SUCCESS_RETURN) {
         return res;
     }

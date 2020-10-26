@@ -24,6 +24,7 @@
 
 #pragma anon_unions
 
+#if 0
 typedef struct{
     int32_t iSaturation; 
     int32_t iValue;
@@ -51,6 +52,7 @@ typedef struct{
     uint8_t ubIsValid[LOCAL_TIMER_SIZE]; 
     uint8_t ubLightSwitch[LOCAL_TIMER_SIZE];    
 }LocalTimer_t;
+#endif
 
 typedef struct{
     #ifdef ALI_POST_CTRL

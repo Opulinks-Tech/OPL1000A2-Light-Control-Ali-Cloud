@@ -50,11 +50,26 @@
 #include "blewifi_ctrl_http_ota.h"
 #include "mqtt_wrapper.h"
 
+
+#if ALI_AUTO_TEST
+#include "auto_test_stats.h"
+struct ats_stats_t ats_stats = {0};
+#endif
+
+#if (ALI_AUTO_TEST == 2)
+osTimerId    ats_pairing_timer = NULL;
+#endif
+
+#if (ALI_AUTO_TEST == 3)
+osTimerId    ats_post_timer = NULL;
+#endif
+
+
 #ifdef BLEWIFI_SCHED_EXT
 #include "mw_fim_default_group16_project.h"
 #endif
 
-#ifdef ADA_REMOTE_CTRL 
+#if BLEWIFI_REMOTE_CTRL
 #include "ada_lightbulb.h"
 #endif
 
@@ -105,7 +120,20 @@ uint32_t g_ulAppCtrlWifiDtimTime;
 #ifdef ALI_BLE_WIFI_PROVISION
 //uint8_t g_Ali_wifi_provision =0;
 #endif
+
+#if 1
+T_MwFim_GP11_WifiConnectSettings g_tAppCtrlWifiConnectSettings =
+{
+    BLEWIFI_WIFI_AUTO_CONNECT_INTERVAL_INIT,    // uint32_t ulAutoConnectIntervalInit;
+    BLEWIFI_WIFI_AUTO_CONNECT_INTERVAL_DIFF,    // uint32_t ulAutoConnectIntervalDiff;
+    BLEWIFI_WIFI_AUTO_CONNECT_INTERVAL_MAX,     // uint32_t ulAutoConnectIntervalMax;
+    BLEWIFI_WIFI_DTIM_INTERVAL,                 // uint32_t ulDtimInterval;
+    BLEWIFI_WIFI_REQ_CONNECT_RETRY_TIMES,       // uint8_t ubConnectRetry;
+    0xFF, 0xFF, 0xFF                            // uint8_t ubaReserved[3];
+};
+#else
 T_MwFim_GP11_WifiConnectSettings g_tAppCtrlWifiConnectSettings;
+#endif
 
 T_MwFim_GP13_Dev_Sched g_taDevSched[MW_FIM_GP13_DEV_SCHED_NUM] = {0};
 
@@ -306,7 +334,12 @@ void linkkit_event_monitor(int event)
             if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_ALI_STOP_BLE))
             {
                 BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_STOP, NULL, 0);
+
+                #if (ALI_AUTO_TEST == 3)
+                #else
                 user_curr_status_post();
+                #endif
+                
                 BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_ALI_STOP_BLE, false);
             }
 
@@ -455,6 +488,11 @@ void BleWifi_Ctrl_DoAutoConnect(void)
                 pu8Ssid = (uint8_t *)tInfo.ssid;
             }
 
+            #if (ALI_AUTO_TEST == 2)
+            ATS_NET_SET_TIME(scan_start);
+            printf("scan_start[%u]\n", ats_stats.net.time.scan_start);
+            #endif
+
             BleWifi_Wifi_DoScan(data, 2, pu8Ssid);
         #else
             BleWifi_Wifi_DoScan(data, 2, 0);
@@ -473,7 +511,7 @@ void BleWifi_Ctrl_AutoConnectTrigger(void const *argu)
 void BleWifi_Ctrl_SysStatusChange(void)
 {
     T_MwFim_SysMode tSysMode;
-    T_MwFim_GP11_PowerSaving tPowerSaving;
+    //T_MwFim_GP11_PowerSaving tPowerSaving;
 
     // get the settings of system mode
     if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP03_PATCH_SYS_MODE, 0, MW_FIM_SYS_MODE_SIZE, (uint8_t*)&tSysMode))
@@ -481,14 +519,14 @@ void BleWifi_Ctrl_SysStatusChange(void)
         // if fail, get the default value
         memcpy(&tSysMode, &g_tMwFimDefaultSysMode, MW_FIM_SYS_MODE_SIZE);
     }
-		
+#if 0
     // get the settings of power saving
     if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP11_PROJECT_POWER_SAVING, 0, MW_FIM_GP11_POWER_SAVING_SIZE, (uint8_t*)&tPowerSaving))
     {
         // if fail, get the default value
         memcpy(&tPowerSaving, &g_tMwFimDefaultGp11PowerSaving, MW_FIM_GP11_POWER_SAVING_SIZE);
     }
-		
+#endif
     // change from init to normal
     if (g_ubAppCtrlSysStatus == BLEWIFI_CTRL_SYS_INIT)
     {
@@ -496,8 +534,8 @@ void BleWifi_Ctrl_SysStatusChange(void)
 
         /* Power saving settings */
         if (tSysMode.ubSysMode == MW_FIM_SYS_MODE_USER)
-            ps_smart_sleep(tPowerSaving.ubPowerSaving);
-				
+            ps_smart_sleep(BLEWIFI_COM_POWER_SAVE_EN);
+
 //        // start the sys timer
 //        osTimerStop(g_tAppCtrlSysTimer);
 //        osTimerStart(g_tAppCtrlSysTimer, BLEWIFI_COM_SYS_TIME_NORMAL);
@@ -695,6 +733,11 @@ static void BleWifi_Ctrl_TaskEvtHandler_WifiScanDoneInd(uint32_t evt_type, void 
     // scan by auto-connect
     if (g_ubAppCtrlRequestRetryTimes == BLEWIFI_CTRL_AUTO_CONN_STATE_SCAN)
     {
+        #if (ALI_AUTO_TEST == 2)
+        ATS_NET_SET_TIME(scan_done)
+        printf("scan_done[%u]\n", ats_stats.net.time.scan_done);
+        #endif
+
         BleWifi_Wifi_UpdateScanInfoToAutoConnList();
         BleWifi_Wifi_DoAutoConnect();
         g_ulAppCtrlAutoConnectInterval = g_ulAppCtrlAutoConnectInterval + g_tAppCtrlWifiConnectSettings.ulAutoConnectIntervalDiff;
@@ -757,6 +800,11 @@ static void BleWifi_Ctrl_TaskEvtHandler_WifiConnectionInd(uint32_t evt_type, voi
     g_ubAppCtrlRequestRetryTimes = BLEWIFI_CTRL_AUTO_CONN_STATE_IDLE;
     g_ulAppCtrlAutoConnectInterval = g_tAppCtrlWifiConnectSettings.ulAutoConnectIntervalInit;
     BleWifi_Ble_SendResponse(BLEWIFI_RSP_CONNECT, BLEWIFI_WIFI_CONNECTED_DONE);
+
+    #if (ALI_AUTO_TEST == 2)
+    ATS_NET_SET_TIME(wifi_connect_done)
+    printf("wifi_connect_done[%u]\n", ats_stats.net.time.wifi_connect_done);
+    #endif
 }
 
 static void BleWifi_Ctrl_TaskEvtHandler_WifiDisconnectionInd(uint32_t evt_type, void *data, int len)
@@ -821,6 +869,13 @@ static void BleWifi_Ctrl_TaskEvtHandler_WifiGotIpInd(uint32_t evt_type, void *da
     BleWifi_Wifi_SetDTIM(BleWifi_Ctrl_DtimTimeGet());
     BleWifi_Wifi_SendStatusInfo(BLEWIFI_IND_IP_STATUS_NOTIFY);
 
+    #if (ALI_AUTO_TEST == 2)
+    ATS_NET_SET_TIME(got_ip_done)
+    printf("got_ip_done[%u]\n", ats_stats.net.time.got_ip_done);
+    ATS_NET_SET_TIME(sntp_done)
+    printf("sntp_done[%u]\n", ats_stats.net.time.sntp_done);
+    #endif
+
 #ifdef ALI_BLE_WIFI_PROVISION
 /*
     if(g_Ali_wifi_provision==1)
@@ -846,6 +901,9 @@ static void BleWifi_Ctrl_TaskEvtHandler_WifiGotIpInd(uint32_t evt_type, void *da
 #endif
     BleWifi_Ctrl_EventStatusSet(BLEWIFI_CTRL_EVENT_BIT_GOT_IP, true);
 
+    #if (ALI_AUTO_TEST == 3)
+    ATS_POST_TIMER_START(20000)
+    #endif
 }
 
 static void BleWifi_Ctrl_TaskEvtHandler_WifiAutoConnectInd(uint32_t evt_type, void *data, int len)
@@ -1292,7 +1350,7 @@ static void BleWifi_Ctrl_TaskEvtHandler_DevSchedTimeout(uint32_t evt_type, void 
         {
             uint8_t u8Mask = 0;
 
-            #ifdef ADA_REMOTE_CTRL 
+            #if BLEWIFI_REMOTE_CTRL 
             /* stop effect operation triggered by key controller*/
             light_effect_timer_stop();
             #endif
@@ -1891,6 +1949,66 @@ void BleWifi_Ctrl_Sntp_Timer_Init(void)
 }
 #endif //#if (SNTP_FUNCTION_EN == 1)
 
+
+#if (ALI_AUTO_TEST == 2)
+static void ats_pairing_timer_cb(void const *argu)
+{
+    BleWifi_Ctrl_MsgSend(BLEWIFI_CTRL_MSG_NETWORKING_START, NULL, 0);
+    BleWifi_Wifi_DoDisconnect();
+}
+#endif
+
+#if (ALI_AUTO_TEST == 3)
+#if 1
+#include "infra_net.h"
+#include "iotx_cm_internal.h"
+#include "iotx_mqtt_client.h"
+
+static void ats_post_timer_cb(void const *argu)
+{
+    extern iotx_cm_connection_t *_mqtt_conncection;
+    extern iotx_mc_state_t iotx_mc_get_client_state(iotx_mc_client_t *pClient);
+
+    ATS_POST_INC(post_data.count_instance);
+
+    if((_mqtt_conncection) && (_mqtt_conncection->context))
+    {
+        if(iotx_mc_get_client_state(_mqtt_conncection->context) == IOTX_MC_STATE_CONNECTED)
+        {
+            user_curr_status_post();
+
+            printf("ats_post_timer_cb: connected => do post\n");
+            goto done;
+        }
+    }
+
+    printf("ats_post_timer_cb: disconnected => suspend post\n");
+
+done:
+    return;
+}
+#else
+static void ats_post_timer_cb(void const *argu)
+{
+    /*
+    int bits = xEventGroupWaitBits(post_bit, POST_BIT_ING, 0, 1, 0);
+    
+    if (bits & POST_BIT_ING) {
+        printf("ignore, retrying...\n");
+        return;
+    }
+    */
+    
+    ATS_POST_INC(post_data.count_instance);
+    
+    //xEventGroupSetBits(post_bit, POST_BIT_ING);
+    
+    user_curr_status_post();
+}
+#endif
+#endif
+
+
 #define OS_TASK_STACK_SIZE_ALI_BLEWIFI_CTRL		(660)
 #define OS_TASK_STACK_SIZE_ALI_CTRL		        (1660)
 
@@ -1972,12 +2090,14 @@ void BleWifi_Ctrl_Init(void)
     /* the init state of system mode is init */
     g_ulAppCtrlSysMode = MW_FIM_SYS_MODE_INIT;
 
+#if 0
     // get the settings of Wifi connect settings
 	if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP11_PROJECT_WIFI_CONNECT_SETTINGS, 0, MW_FIM_GP11_WIFI_CONNECT_SETTINGS_SIZE, (uint8_t*)&g_tAppCtrlWifiConnectSettings))
     {
         // if fail, get the default value
         memcpy(&g_tAppCtrlWifiConnectSettings, &g_tMwFimDefaultGp11WifiConnectSettings, MW_FIM_GP11_WIFI_CONNECT_SETTINGS_SIZE);
     }
+#endif
 
     /* the init state of SYS is init */
     g_ubAppCtrlSysStatus = BLEWIFI_CTRL_SYS_INIT;
@@ -2000,5 +2120,13 @@ void BleWifi_Ctrl_Init(void)
 
     #if (SNTP_FUNCTION_EN == 1)
     BleWifi_Ctrl_Sntp_Timer_Init();
+    #endif
+
+    #if (ALI_AUTO_TEST == 2)
+    ATS_PAIRING_TIMER_INIT(ats_pairing_timer_cb)
+    #endif
+
+    #if (ALI_AUTO_TEST == 3)
+    ATS_POST_TIMER_INIT(ats_post_timer_cb)
     #endif
 }

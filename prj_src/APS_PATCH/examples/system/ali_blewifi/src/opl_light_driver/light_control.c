@@ -54,6 +54,7 @@ typedef struct
     uint8_t brightness;
     uint32_t fade_period_ms;
     uint32_t fade_step_ms;
+    uint8_t rhyon;
 } light_status_t;
 
 typedef struct
@@ -65,12 +66,12 @@ typedef struct
 
 static light_status_t g_light_status = {0};
 static manual_light_status_t g_manual_light_status={0, 100, 100};
-light_effect_t g_light_effect = {0};
+/*SHM_DATA */light_effect_t g_light_effect = {0};
 TimerHandle_t g_TimerLightEffect;
 
 uint16_t g_u16ColorSpeedPer = 0;
 
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
 osSemaphoreId g_tLightCtrlSem = NULL;
 
 int light_ctrl_lock(void)
@@ -250,7 +251,7 @@ void light_effect_set_status(uint8_t light_effect_status)
 
 uint8_t light_effect_get_status(void)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -291,7 +292,7 @@ void light_ctrl_set_light_type(uint8_t light_type,uint8_t power_level)
 
 uint8_t light_ctrl_get_light_type(void)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -380,7 +381,7 @@ void light_ctrl_set_workmode(uint8_t workmode)
 
 uint8_t light_ctrl_get_workmode(void)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -411,7 +412,7 @@ void light_ctrl_init()
     g_light_status.fade_step_ms      = GENERAL_FADE_STEP_MS;
     g_light_status.workmode          = WMODE_MANUAL;
 
-    #ifdef ADA_REMOTE_CTRL
+    #ifdef LIGHT_CTRL_MUTEX
     if(g_tLightCtrlSem == NULL)
     {
         osSemaphoreDef_t tSemDef = {0};
@@ -675,7 +676,7 @@ uint8_t light_ctrl_get_hsv(uint16_t *hue, uint8_t *saturation, uint8_t *value)
 
 uint16_t light_ctrl_get_hue()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint16_t u16Value = 0;
 
     light_ctrl_lock();
@@ -692,7 +693,7 @@ uint16_t light_ctrl_get_hue()
 
 uint8_t light_ctrl_get_saturation()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -709,7 +710,7 @@ uint8_t light_ctrl_get_saturation()
 
 uint8_t light_ctrl_get_value()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -726,7 +727,7 @@ uint8_t light_ctrl_get_value()
 
 uint8_t light_ctrl_get_mode()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();
@@ -896,7 +897,7 @@ uint8_t light_ctrl_get_ctb(uint8_t *brightness)
 
 uint32_t light_ctrl_get_color_temperature()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint32_t u32Value = 0;
 
     light_ctrl_lock();
@@ -913,7 +914,7 @@ uint32_t light_ctrl_get_color_temperature()
 
 uint8_t light_ctrl_get_brightness()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint32_t u32Value = 0;
 
     light_ctrl_lock();
@@ -926,6 +927,16 @@ uint8_t light_ctrl_get_brightness()
 #else
     return g_light_status.brightness;
 #endif
+}
+
+uint8_t light_ctrl_set_rhyon(uint8_t on)
+{
+    light_ctrl_lock();
+
+    g_light_status.rhyon = on;
+
+    light_ctrl_unlock();
+    return 0;
 }
 
 uint8_t light_ctrl_set_switch(uint8_t on)
@@ -1011,9 +1022,27 @@ uint8_t light_ctrl_set_switch(uint8_t on)
     return 0;
 }
 
+uint8_t light_ctrl_get_rhyon()
+{
+#ifdef LIGHT_CTRL_MUTEX
+    uint8_t u8Value = 0;
+
+    light_ctrl_lock();
+
+    u8Value = g_light_status.rhyon;
+
+    light_ctrl_unlock();
+
+    return u8Value;
+#else
+    return g_light_status.rhyon;
+#endif
+}
+
+
 uint8_t light_ctrl_get_switch()
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef LIGHT_CTRL_MUTEX
     uint8_t u8Value = 0;
 
     light_ctrl_lock();

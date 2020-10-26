@@ -26,6 +26,18 @@
     #define httpc_debug(...)
 #endif
 
+#if (ALI_AUTO_TEST == 1)
+#include "cmsis_os.h"
+
+uint32_t g_u32OtaRecvTick1 = 0;
+int32_t g_s32OtaTrigRecvOverFlow1 = 0;
+uint32_t g_u32OtaRecvTick2 = 0;
+int32_t g_s32OtaTrigRecvOverFlow2 = 0;
+
+extern uint32_t g_u32OtaTrigTick;
+extern int32_t g_s32OtaTrigTickOverFlow;
+#endif
+
 int HAL_Snprintf(char *str, const int len, const char *fmt, ...);
 void HAL_SleepMs(uint32_t ms);
 
@@ -428,7 +440,18 @@ int httpclient_connect_(httpclient_t *client)
     int rc = -1;
 
     do {
+        #ifdef ALI_HTTP_COMPATIBLE
+        if(g_u8UseHttp)
+        {
+            client->net.handle = (uintptr_t)(-1);
+        }
+        else
+        {
+            client->net.handle = 0;
+        }
+        #else
         client->net.handle = 0;
+        #endif
         httpc_debug("calling TCP or TLS connect HAL for [%d/%d] iteration", retry_cnt, retry_max);
 
         rc = client->net.connect(&client->net);
@@ -451,9 +474,24 @@ int _http_send_request(httpclient_t *client, const char *host, const char *path,
 {
     int ret = ERROR_HTTP_CONN;
 
+    #ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+        if ((uintptr_t)(-1) == client->net.handle) {
+            return -1;
+        }
+    }
+    else
+    {
+        if (0 == client->net.handle) {
+            return -1;
+        }
+    }
+    #else
     if (0 == client->net.handle) {
         return -1;
     }
+    #endif
 
     ret = _http_send_header(client, host, path, method, client_data);
     if (ret != 0) {
@@ -479,10 +517,27 @@ int httpclient_recv_response_(httpclient_t *client, uint32_t timeout_ms, httpcli
     iotx_time_init(&timer);
     utils_time_countdown_ms(&timer, timeout_ms);
 
+    #ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+        if ((uintptr_t)(-1) == client->net.handle) {
+            httpc_err("tcp connection not established");
+            return ret;
+        }
+    }
+    else
+    {
+        if (0 == client->net.handle) {
+            httpc_err("tls connection not established");
+            return ret;
+        }
+    }
+    #else
     if (0 == client->net.handle) {
         httpc_err("not connection have been established");
         return ret;
     }
+    #endif
 
     if (client_data->is_more) {
         client_data->response_buf[0] = '\0';
@@ -501,6 +556,13 @@ int httpclient_recv_response_(httpclient_t *client, uint32_t timeout_ms, httpcli
 #ifdef INFRA_LOG
             log_multi_line(LOG_DEBUG_LEVEL, "RESPONSE", "%s", buf, "<");
 #endif
+
+            #if (ALI_AUTO_TEST == 1)
+            printf("\r\n==============================\r\n\r\n");
+            printf("%s", buf);
+            printf("\r\n==============================\r\n\r\n");
+            #endif
+    
             ret = _http_parse_response_header(client, buf, reclen, iotx_time_left(&timer), client_data);
         }
     }
@@ -510,10 +572,27 @@ int httpclient_recv_response_(httpclient_t *client, uint32_t timeout_ms, httpcli
 
 void httpclient_close_(httpclient_t *client)
 {
+#ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+        if (client->net.handle != (uintptr_t)(-1)) {
+            client->net.disconnect(&client->net);
+        }
+        client->net.handle = (uintptr_t)(-1);
+    }
+    else
+    {
+        if (client->net.handle > 0) {
+            client->net.disconnect(&client->net);
+        }
+        client->net.handle = 0;
+    }
+#else
     if (client->net.handle > 0) {
         client->net.disconnect(&client->net);
     }
     client->net.handle = 0;
+#endif
     httpc_info("client disconnected");
 }
 
@@ -568,12 +647,53 @@ int httpclient_common_(httpclient_t *client, const char *url, int port, const ch
 
     if ((NULL != client_data->response_buf)
         && (0 != client_data->response_buf_len)) {
+
+        #if (ALI_AUTO_TEST == 1)
+        if(port == 80)
+        {
+            //printf("Receive - 0\n");
+        }
+        #endif
+        
         ret = httpclient_recv_response_(client, iotx_time_left(&timer), client_data);
+
+        #if (ALI_AUTO_TEST == 1)
+        if(port == 80)
+        {
+            //printf("Receive - 1\n");
+        }
+        #endif
+        
         if (ret < 0) {
             httpc_err("httpclient_recv_response is error,ret = %d", ret);
             httpclient_close_(client);
             return ret;
         }
+
+        #if (ALI_AUTO_TEST == 1)
+        if(port == 80)
+        {
+            osKernelSysTickEx(&g_u32OtaRecvTick2, &g_s32OtaTrigRecvOverFlow2);
+            if ( (g_s32OtaTrigRecvOverFlow2 - g_s32OtaTrigRecvOverFlow1) != 0 )
+            {
+                if ( g_u32OtaRecvTick2 >= g_u32OtaRecvTick1 )
+                {
+                    printf("\n### Ln. %d : Intvl. Recv : %d ms\n\n", __LINE__, 0xFFFFFFFF);
+                }
+                else
+                {
+                    printf("\n### Ln. %d : Intvl. Recv : %d ms\n\n", __LINE__, (0xFFFFFFFF - g_u32OtaRecvTick1) + g_u32OtaRecvTick2);
+                }
+            }
+            else
+            {
+                printf("\n### Ln. %d : Intvl. Recv : %d ms\n\n", __LINE__, g_u32OtaRecvTick2 - g_u32OtaRecvTick1);
+            }
+            
+            g_u32OtaRecvTick1 = g_u32OtaRecvTick2;
+            g_s32OtaTrigRecvOverFlow1 = g_s32OtaTrigRecvOverFlow2;
+        }
+        #endif
     }
 
     if (! client_data->is_more) {

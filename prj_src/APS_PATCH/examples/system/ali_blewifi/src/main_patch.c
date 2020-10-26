@@ -51,6 +51,7 @@ Head Block of The File
 #include "mw_fim.h"
 #include "mw_fim_default.h"
 #include "hal_dbg_uart.h"
+#include "hal_uart.h"
 #include "hal_vic.h"
 #include "boot_sequence.h"
 
@@ -68,6 +69,14 @@ Head Block of The File
 #ifdef BLEWIFI_SCHED_EXT
 #include "mw_fim_default_group16_project.h"
 #endif
+
+#if BLEWIFI_REMOTE_CTRL
+#include "ada_ucmd_parser.h"
+#include "ada_uart_transport.h"
+#include "uart_cmd_task.h"
+#endif
+
+#include "infra_config.h"
 
 //#include "hal_wdt.h"
 // Sec 2: Constant Definitions, Imported Symbols, miscellaneous
@@ -93,6 +102,8 @@ extern uint32_t g_ulMemPartTotalSize;
 
 extern uint8_t g_bTracerLogMode;
 extern uint32_t g_dwTracerQueueNum;
+extern uint32_t g_dwTracerQueueSize;
+
 extern osMemoryDef_t g_xaMemoryTable[MAX_NUM_MEM_POOL];
 // Sec 5: declaration of global function prototype
 
@@ -124,47 +135,6 @@ C Functions
 ***********/
 // Sec 8: C Functions
 
-extern T_IpcRbReadWriteBufGetFp ipc_rb_write;
-
-void *ipc_rb_write_patch(void *pRb)
-{
-    extern void *ipc_rb_write_impl(void *pRb);
-
-    T_IpcCommRb *ptRb = (T_IpcCommRb *)pRb;
-    void *pBuf = NULL;
-
-    if(IPC_RB_FULL(ptRb))
-    {
-        goto done;
-    }
-
-    pBuf = ipc_rb_write_impl(pRb);
-
-done:
-    return pBuf;
-}
-
-int ipc_wifi_cmd_send_patch(uint32_t dwType, void *pData, uint32_t dwDataLen)
-{
-    extern int ipc_wifi_cmd_send_impl(uint32_t dwType, void *pData, uint32_t dwDataLen);
-
-    int iRet = -1;
-    uint32_t u32Total = 0;
-    uint32_t u32Cnt = 0;
-
-    u32Cnt = ipc_wifi_cmd_count_get(&u32Total);
-
-    if(u32Cnt >= u32Total)
-    {
-        goto done;
-    }
-
-    iRet = ipc_wifi_cmd_send_impl(dwType, pData, dwDataLen);
-
-done:
-    return iRet;
-}
-
 /*************************************************************************
 * FUNCTION:
 *   __Patch_EntryPoint
@@ -183,6 +153,9 @@ void __Patch_EntryPoint(void)
 {
     // don't remove this code
     SysInit_EntryPoint();
+
+    // Uncomment this function when the device is without 32k XTAL.
+    Sys_SwitchTo32kRC();
     
     // update the pin mux
     Hal_SysPinMuxAppInit = Main_PinMuxUpdate;
@@ -201,10 +174,10 @@ void __Patch_EntryPoint(void)
     
 #if 1
     // modify the heap size, from g_ucaMemPartAddr to 0x44F000
-    #ifdef ADA_REMOTE_CTRL
-    uint32_t u32Addr = 0x43A200;
+    #if BLEWIFI_REMOTE_CTRL
+    uint32_t u32Addr = 0x43BE00; //0x43B100;
     #else
-    uint32_t u32Addr = 0x439500;
+    uint32_t u32Addr = 0x43B200; //0x43A600;
     #endif
 
     g_ucaMemPartAddr = (uint8_t*) u32Addr;
@@ -238,9 +211,10 @@ void __Patch_EntryPoint(void)
 #ifdef __BLEWIFI_TRANSPARENT__
     at_blewifi_init_adpt = Main_BleWifiInit;
 #endif
-
+#if 0
     ipc_rb_write = ipc_rb_write_patch;
     ipc_wifi_cmd_send = ipc_wifi_cmd_send_patch;
+#endif
 }
 
 /*************************************************************************
@@ -306,8 +280,10 @@ static void Main_FlashLayoutUpdate(void)
     g_taMwFimZoneInfoTable[1].ulBaseAddr = 0x00090000;
     g_taMwFimZoneInfoTable[1].ulBlockNum = 9;
 
+#if 0
     MwFim_GroupInfoUpdate(1, 1, (T_MwFimFileInfo *)g_taMwFimGroupTable11_project);
     MwFim_GroupVersionUpdate(1, 1, MW_FIM_VER11_PROJECT);
+#endif
 
     MwFim_GroupInfoUpdate(1, 2, (T_MwFimFileInfo *)g_taMwFimGroupTable12_project);
     MwFim_GroupVersionUpdate(1, 2, MW_FIM_VER12_PROJECT);
@@ -378,6 +354,18 @@ static void Main_MiscDriverConfigSetup(void)
             Main_ApsUartRxDectecConfig();
         }
     }
+
+    // For ADA Remote Ctrl
+    #if (BLEWIFI_REMOTE_CTRL == 1)
+    uart_cmd_init(UART_NUM_0, 9600, ada_ctrl_uart_input_impl);
+    uart_cmd_handler_register(uart_cmd_process, NULL);
+    #endif
+
+    // For OPL Remote Ctrl
+    #if (BLEWIFI_REMOTE_CTRL == 2)
+    //Hal_DbgUart_BaudRateSet(9600);
+    Hal_Uart_BaudRateSet(UART_IDX_1,9600);
+    #endif
 }
 
 /*************************************************************************
@@ -401,8 +389,11 @@ static void Main_AtUartDbgUartSwitch(void)
         Hal_Pin_ConfigSet(0, PIN_TYPE_UART_APS_TX, PIN_DRIVING_FLOAT);
         Hal_Pin_ConfigSet(1, PIN_TYPE_UART_APS_RX, PIN_DRIVING_LOW);
 
-        //Hal_Pin_ConfigSet(8, PIN_TYPE_UART1_TX, PIN_DRIVING_FLOAT);
-        //Hal_Pin_ConfigSet(9, PIN_TYPE_UART1_RX, PIN_DRIVING_HIGH);
+        // For OPL Remote Ctrl
+        #if (BLEWIFI_REMOTE_CTRL == 2)
+        Hal_Pin_ConfigSet(11, PIN_TYPE_UART1_TX, PIN_DRIVING_FLOAT);
+        Hal_Pin_ConfigSet(10, PIN_TYPE_UART1_RX, PIN_DRIVING_HIGH);
+        #endif
 
         Hal_DbgUart_RxIntEn(1);
     }
@@ -413,8 +404,12 @@ static void Main_AtUartDbgUartSwitch(void)
         Hal_Pin_ConfigSet(0, PIN_TYPE_UART1_TX, PIN_DRIVING_FLOAT);
         Hal_Pin_ConfigSet(1, PIN_TYPE_UART1_RX, PIN_DRIVING_LOW);
         
-        //Hal_Pin_ConfigSet(8, PIN_TYPE_UART_APS_TX, PIN_DRIVING_FLOAT);
-        //Hal_Pin_ConfigSet(9, PIN_TYPE_UART_APS_RX, PIN_DRIVING_HIGH);
+        // For OPL Remote Ctrl
+        //#if (BLEWIFI_REMOTE_CTRL == 2)
+        #if 0
+        Hal_Pin_ConfigSet(10, PIN_TYPE_UART_APS_TX, PIN_DRIVING_FLOAT);
+        Hal_Pin_ConfigSet(11, PIN_TYPE_UART_APS_RX, PIN_DRIVING_FLOAT);
+        #endif
     }
     
     g_eAppIO01UartMode = (E_IO01_UART_MODE)!g_eAppIO01UartMode;
@@ -439,8 +434,14 @@ static void Main_AppInit_patch(void)
     // add the application initialization from here
     printf("AppInit\n");
 
+#if ALI_AUTO_TEST
+    g_bTracerLogMode = 1;
+    g_dwTracerQueueNum = 256;
+    g_dwTracerQueueSize = 128;
+#else
     g_bTracerLogMode = 0;
     g_dwTracerQueueNum = 16;
+#endif
 
     sys_cfg_clk_set(SYS_CFG_CLK_87_MHZ);
 

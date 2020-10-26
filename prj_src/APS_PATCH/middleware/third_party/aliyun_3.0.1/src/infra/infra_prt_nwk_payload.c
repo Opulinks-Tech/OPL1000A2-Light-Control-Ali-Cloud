@@ -29,7 +29,7 @@ char *lvl_color[] = {
 };
 
 
-SHM_DATA int iotx_facility_json_print(const char *str, int level, ...)
+int iotx_facility_json_print(const char *str, int level, ...)
 {
     int             length = 0;
     char            newstr[2];
@@ -45,6 +45,7 @@ SHM_DATA int iotx_facility_json_print(const char *str, int level, ...)
 
     newstr[0] = 0x00;
     newstr[1] = 0x00;
+    (void)newstr;
 
     if (curr_level < level) {
         return 1;

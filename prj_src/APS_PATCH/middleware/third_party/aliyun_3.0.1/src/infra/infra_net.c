@@ -223,7 +223,8 @@ static int connect_tcp(utils_network_pt pNetwork)
 /****** network interface ******/
 
 #ifdef ALI_HTTP_COMPATIBLE
-volatile uint8_t g_u8UseHttp = 0;
+
+volatile uint8_t g_u8UseHttp = 1; // Disable TLS by default (enable TLS only for pre-auth).
 
 extern int32_t HAL_TCP_Read(uintptr_t fd, char *buf, uint32_t len, uint32_t timeout_ms);
 extern int32_t HAL_TCP_Write(uintptr_t fd, const char *buf, uint32_t len, uint32_t timeout_ms);
@@ -273,7 +274,8 @@ int utils_net_read(utils_network_pt pNetwork, char *buffer, uint32_t len, uint32
 
     if(g_u8UseHttp)
     {
-        if (NULL == pNetwork->ca_crt) {
+        //if (NULL == pNetwork->ca_crt) {
+        if (1) {
             ret = read_tcp(pNetwork, buffer, len, timeout_ms);
         }
         else {
@@ -307,7 +309,8 @@ int utils_net_write(utils_network_pt pNetwork, const char *buffer, uint32_t len,
 
     if(g_u8UseHttp)
     {
-        if (NULL == pNetwork->ca_crt) {
+        //if (NULL == pNetwork->ca_crt) {
+        if (1) {
             ret = write_tcp(pNetwork, buffer, len, timeout_ms);
         }
         else {
@@ -342,7 +345,8 @@ int iotx_net_disconnect(utils_network_pt pNetwork)
 
     if(g_u8UseHttp)
     {
-        if (NULL == pNetwork->ca_crt) {
+        //if (NULL == pNetwork->ca_crt) {
+        if (1) {
             ret = disconnect_tcp(pNetwork);
         }
         else {
@@ -376,7 +380,8 @@ int iotx_net_connect(utils_network_pt pNetwork)
 
     if(g_u8UseHttp)
     {
-        if (NULL == pNetwork->ca_crt) {
+        //if (NULL == pNetwork->ca_crt) {
+        if (1) {
             ret = connect_tcp(pNetwork);
         }
         else {
@@ -502,7 +507,19 @@ int iotx_net_init(utils_network_pt pNetwork, const char *host, uint16_t port, co
         pNetwork->ca_crt_len = strlen(ca_crt);
     }
 
+    #ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+        pNetwork->handle = (uintptr_t)(-1);
+    }
+    else
+    {
+        pNetwork->handle = 0;
+    }
+    #else
     pNetwork->handle = 0;
+    #endif
+
     pNetwork->read = utils_net_read;
     pNetwork->write = utils_net_write;
     pNetwork->disconnect = iotx_net_disconnect;

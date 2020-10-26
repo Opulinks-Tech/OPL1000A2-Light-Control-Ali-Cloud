@@ -43,12 +43,16 @@ Head Block of The File
 #include <stdint.h>
 #include "hal_pin_def.h"
 
+#include "infra_config.h"
+
 // Sec 2: Constant Definitions, Imported Symbols, miscellaneous
-/* Select IO 0/1 UART mode. For switching UART use */
-#define HAL_PIN_0_1_UART_MODE       IO01_UART_MODE_AT       // IO01_UART_MODE_AT
+
+#if ALI_AUTO_TEST
+    /* Select IO 0/1 UART mode. For switching UART use */
+    #define HAL_PIN_0_1_UART_MODE       IO01_UART_MODE_DBG      // IO01_UART_MODE_AT
                                                             // IO01_UART_MODE_DBG
-// IO type select
-#define HAL_PIN_TYPE_IO_0   PIN_TYPE_UART1_TX       // PIN_TYPE_NONE
+    // IO type select
+    #define HAL_PIN_TYPE_IO_0   PIN_TYPE_UART_APS_TX    // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -62,7 +66,7 @@ Head Block of The File
                                                     // PIN_TYPE_ICE_M3_DAT
                                                     // PIN_TYPE_ICE_M0_CLK
 
-#define HAL_PIN_TYPE_IO_1   PIN_TYPE_UART1_RX       // PIN_TYPE_NONE
+    #define HAL_PIN_TYPE_IO_1   PIN_TYPE_UART_APS_RX    // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -75,6 +79,39 @@ Head Block of The File
                                                     // PIN_TYPE_UART_MSQ_TX
                                                     // PIN_TYPE_ICE_M3_CLK
                                                     // PIN_TYPE_ICE_M0_DAT
+#else
+    /* Select IO 0/1 UART mode. For switching UART use */
+    #define HAL_PIN_0_1_UART_MODE       IO01_UART_MODE_AT       // IO01_UART_MODE_AT
+                                                            // IO01_UART_MODE_DBG
+    // IO type select
+    #define HAL_PIN_TYPE_IO_0   PIN_TYPE_UART1_TX       // PIN_TYPE_NONE
+                                                    // PIN_TYPE_GPIO_INPUT
+                                                    // PIN_TYPE_GPIO_OUTPUT_LOW
+                                                    // PIN_TYPE_GPIO_OUTPUT_HIGH
+                                                    // PIN_TYPE_UART0_CTS
+                                                    // PIN_TYPE_UART1_TX
+                                                    // PIN_TYPE_I2C_SCL
+                                                    // PIN_TYPE_SPI2_IO_3
+                                                    // PIN_TYPE_AUX_0
+                                                    // PIN_TYPE_UART_APS_TX
+                                                    // PIN_TYPE_UART_MSQ_RX
+                                                    // PIN_TYPE_ICE_M3_DAT
+                                                    // PIN_TYPE_ICE_M0_CLK
+
+    #define HAL_PIN_TYPE_IO_1   PIN_TYPE_UART1_RX       // PIN_TYPE_NONE
+                                                    // PIN_TYPE_GPIO_INPUT
+                                                    // PIN_TYPE_GPIO_OUTPUT_LOW
+                                                    // PIN_TYPE_GPIO_OUTPUT_HIGH
+                                                    // PIN_TYPE_UART0_RTS
+                                                    // PIN_TYPE_UART1_RX
+                                                    // PIN_TYPE_I2C_SDA
+                                                    // PIN_TYPE_SPI2_IO_2
+                                                    // PIN_TYPE_AUX_1
+                                                    // PIN_TYPE_UART_APS_RX
+                                                    // PIN_TYPE_UART_MSQ_TX
+                                                    // PIN_TYPE_ICE_M3_CLK
+                                                    // PIN_TYPE_ICE_M0_DAT
+#endif
 
 #define HAL_PIN_TYPE_IO_2   PIN_TYPE_NONE           // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
@@ -90,8 +127,9 @@ Head Block of The File
                                                     // PIN_TYPE_ICE_M3_DAT
                                                     // PIN_TYPE_ICE_M0_CLK
 
-#ifdef ADA_REMOTE_CTRL
-#define HAL_PIN_TYPE_IO_3   PIN_TYPE_UART0_RX       // PIN_TYPE_NONE
+// For ADA Remote Ctrl
+#if (BLEWIFI_REMOTE_CTRL == 1)
+    #define HAL_PIN_TYPE_IO_3   PIN_TYPE_UART0_RX       // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -105,7 +143,7 @@ Head Block of The File
                                                     // PIN_TYPE_ICE_M3_CLK
                                                     // PIN_TYPE_ICE_M0_DAT
 #else
-#define HAL_PIN_TYPE_IO_3   PIN_TYPE_NONE           // PIN_TYPE_NONE
+    #define HAL_PIN_TYPE_IO_3   PIN_TYPE_NONE           // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -204,7 +242,9 @@ Head Block of The File
                                                     // PIN_TYPE_ICE_M3_CLK
                                                     // PIN_TYPE_ICE_M0_DAT
 
-#define HAL_PIN_TYPE_IO_10  PIN_TYPE_NONE           // PIN_TYPE_NONE
+// For OPL Remote Ctrl
+#if (BLEWIFI_REMOTE_CTRL == 2)
+    #define HAL_PIN_TYPE_IO_10  PIN_TYPE_UART1_RX        // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -218,7 +258,7 @@ Head Block of The File
                                                     // PIN_TYPE_ICE_M3_DAT
                                                     // PIN_TYPE_ICE_M0_CLK
 
-#define HAL_PIN_TYPE_IO_11  PIN_TYPE_NONE           // PIN_TYPE_NONE
+    #define HAL_PIN_TYPE_IO_11  PIN_TYPE_UART1_TX       // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
                                                     // PIN_TYPE_GPIO_OUTPUT_LOW
                                                     // PIN_TYPE_GPIO_OUTPUT_HIGH
@@ -231,6 +271,35 @@ Head Block of The File
                                                     // PIN_TYPE_UART_MSQ_TX
                                                     // PIN_TYPE_ICE_M3_CLK
                                                     // PIN_TYPE_ICE_M0_DAT
+#else
+    #define HAL_PIN_TYPE_IO_10  PIN_TYPE_NONE           // PIN_TYPE_NONE
+                                                    // PIN_TYPE_GPIO_INPUT
+                                                    // PIN_TYPE_GPIO_OUTPUT_LOW
+                                                    // PIN_TYPE_GPIO_OUTPUT_HIGH
+                                                    // PIN_TYPE_UART0_TX
+                                                    // PIN_TYPE_UART1_RX
+                                                    // PIN_TYPE_I2C_SCL
+                                                    // PIN_TYPE_SPI1_IO_2
+                                                    // PIN_TYPE_AUX_10
+                                                    // PIN_TYPE_UART_APS_TX
+                                                    // PIN_TYPE_UART_MSQ_RX
+                                                    // PIN_TYPE_ICE_M3_DAT
+                                                    // PIN_TYPE_ICE_M0_CLK
+
+    #define HAL_PIN_TYPE_IO_11  PIN_TYPE_NONE           // PIN_TYPE_NONE
+                                                    // PIN_TYPE_GPIO_INPUT
+                                                    // PIN_TYPE_GPIO_OUTPUT_LOW
+                                                    // PIN_TYPE_GPIO_OUTPUT_HIGH
+                                                    // PIN_TYPE_UART0_RX
+                                                    // PIN_TYPE_UART1_TX
+                                                    // PIN_TYPE_I2C_SDA
+                                                    // PIN_TYPE_SPI1_IO_3
+                                                    // PIN_TYPE_AUX_11
+                                                    // PIN_TYPE_UART_APS_RX
+                                                    // PIN_TYPE_UART_MSQ_TX
+                                                    // PIN_TYPE_ICE_M3_CLK
+                                                    // PIN_TYPE_ICE_M0_DAT
+#endif
 
 #define HAL_PIN_TYPE_IO_12  PIN_TYPE_SPI0_CS        // PIN_TYPE_NONE
                                                     // PIN_TYPE_GPIO_INPUT
@@ -408,10 +477,10 @@ Head Block of The File
 #define HAL_PIN_DRIVING_IO_4    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_5    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_6    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_LOW
-#define HAL_PIN_DRIVING_IO_7    PIN_DRIVING_HIGH    // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
+#define HAL_PIN_DRIVING_IO_7    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_8    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_LOW
-#define HAL_PIN_DRIVING_IO_9    PIN_DRIVING_HIGH    // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
-#define HAL_PIN_DRIVING_IO_10   PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
+#define HAL_PIN_DRIVING_IO_9    PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
+#define HAL_PIN_DRIVING_IO_10   PIN_DRIVING_HIGH    // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_11   PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_12   PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_HIGH
 #define HAL_PIN_DRIVING_IO_13   PIN_DRIVING_FLOAT   // PIN_DRIVING_FLOAT | PIN_DRIVING_LOW

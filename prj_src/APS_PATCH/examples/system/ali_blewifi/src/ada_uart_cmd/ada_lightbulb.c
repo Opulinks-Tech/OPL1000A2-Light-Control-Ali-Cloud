@@ -9,7 +9,7 @@
 *  permission of Opulinks Technology Ltd. (C) 2019
 ******************************************************************************/
 
-#ifdef ADA_REMOTE_CTRL
+#if BLEWIFI_REMOTE_CTRL
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1242,5 +1242,5 @@ void ada_cmd_style_softwhite(uint8_t key_value, uint8_t keystate)
     printf("style_softwhite\n");
 }
 
-#endif //#ifdef ADA_REMOTE_CTRL
+#endif //#if BLEWIFI_REMOTE_CTRL
 

@@ -14,14 +14,19 @@
 #include "iot_rb_data.h"
 #include "light_control.h"
 #include "infra_config.h"
+#include "blewifi_configuration.h"
 
 #ifdef ALI_POST_CTRL
 #include "ali_linkkitsdk_decl.h"
 #endif
 
+#if (ALI_AUTO_TEST == 3)
+#include "auto_test_stats.h"
+#endif
+
 IoT_Ring_buffer_t g_tRBData;
 
-#ifdef ADA_REMOTE_CTRL
+#if (defined IOT_RB_MUTEX) || (ALI_AUTO_TEST == 3)
 osSemaphoreId g_tIotRbSem = NULL;
 
 int iot_rb_lock(void)
@@ -61,7 +66,7 @@ int iot_rb_unlock(void)
     
     if(osSemaphoreRelease(g_tIotRbSem) != osOK)
     {
-        //printf("[%s %d] osSemaphoreWait fail\n", __func__, __LINE__);
+        //printf("[%s %d] osSemaphoreRelease fail\n", __func__, __LINE__);
         goto done;
     }
 
@@ -77,7 +82,7 @@ done:
 
 void IoT_Ring_Buffer_Init(void)
 {
-    #ifdef ADA_REMOTE_CTRL
+    #ifdef IOT_RB_MUTEX
     if(g_tIotRbSem == NULL)
     {
         osSemaphoreDef_t tSemDef = {0};
@@ -110,6 +115,11 @@ uint8_t IoT_Ring_Buffer_Push(IoT_Properity_t *ptProperity)
     {
         // discard the oldest data, and read index move forware one step.
         g_tRBData.ulReadIdx = (g_tRBData.ulReadIdx + 1) % IOT_RB_COUNT;
+
+        #if (ALI_AUTO_TEST == 3)
+        ATS_POST_FAIL_INC(fail.ssl)
+        ATS_POST_SET_RET(ATS_POST_OVERWRITTEN)
+        #endif
     }
 
     // update the temperature data to write index
@@ -173,6 +183,14 @@ void IoT_Ring_Buffer_ResetBuffer(void)
     {
         memset(&(g_tRBData.taProperity[i]), 0, sizeof(IoT_Properity_t));
     }
+
+    #if (ALI_AUTO_TEST == 3)
+    if(g_tRBData.ulWriteIdx != g_tRBData.ulReadIdx)
+    {
+        ATS_POST_FAIL_INC(fail.ssl)
+        ATS_POST_SET_RET(ATS_POST_CLEARED)
+    }
+    #endif
 
     g_tRBData.ulReadIdx = 0;
     g_tRBData.ulWriteIdx = 0;

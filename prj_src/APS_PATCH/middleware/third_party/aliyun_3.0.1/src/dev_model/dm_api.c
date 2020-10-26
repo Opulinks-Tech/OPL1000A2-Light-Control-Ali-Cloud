@@ -5,6 +5,8 @@
 
 
 #include "iotx_dm_internal.h"
+#undef printf
+#define printf(...)
 
 static dm_api_ctx_t g_dm_api_ctx;
 

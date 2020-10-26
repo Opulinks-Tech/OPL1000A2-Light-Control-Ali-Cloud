@@ -54,7 +54,7 @@ struct list_head *get_svr_session_list(CoAPContext *context)
 #endif
 
 #else
-device_auth_list _device;
+SHM_DATA device_auth_list _device;
 #endif
 
 void remove_session(CoAPContext *ctx, session_item *session)
@@ -462,7 +462,7 @@ static void call_cb(CoAPContext *context, NetworkAddr *remote, CoAPMessage *mess
     }
 }
 
-SHM_DATA void secure_sendmsg_handler(CoAPContext *context, CoAPReqResult result, void *userdata, NetworkAddr *remote,
+void secure_sendmsg_handler(CoAPContext *context, CoAPReqResult result, void *userdata, NetworkAddr *remote,
                             CoAPMessage *message)
 {
     secure_send_item *send_item = (secure_send_item *)userdata;

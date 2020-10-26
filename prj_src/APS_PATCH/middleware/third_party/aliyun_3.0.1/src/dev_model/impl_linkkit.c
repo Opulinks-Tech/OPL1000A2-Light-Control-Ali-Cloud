@@ -51,6 +51,8 @@
 #define IOTX_LINKKIT_KEY_MESSAGE     "message"
 
 #define IOTX_LINKKIT_SYNC_DEFAULT_TIMEOUT_MS 10000
+//#undef printf
+//#define printf(...)
 
 volatile uint32_t g_u32RecvMsgId = 0;
 
@@ -568,11 +570,11 @@ static void _iotx_linkkit_event_callback(iotx_dm_event_types_t type, char *paylo
                 report_sample = 1;
                 send_permance_info(msg_id.value, msg_id.value_length, "3", 1);
             }
-#endif
-
             g_u32RecvMsgId = (uint32_t)msg_id.value_int;
 
             printf("recv id[%u]\n%s\n", g_u32RecvMsgId, property_payload);
+#endif
+            
 
             callback = iotx_event_callback(ITE_PROPERTY_SET);
             if (callback) {
@@ -1251,7 +1253,7 @@ static int _iotx_linkkit_master_connect(void)
     memset(&dm_init_params, 0, sizeof(iotx_dm_init_params_t));
     dm_init_params.event_callback = _iotx_linkkit_event_callback;
 
-#if 0 //SDK1.6.0
+#if 1 //SDK1.6.0
     res = iotx_dm_subscribe(IOTX_DM_LOCAL_NODE_DEVID);
     if (res != SUCCESS_RETURN)
     {
@@ -1268,7 +1270,7 @@ static int _iotx_linkkit_master_connect(void)
         ctx->is_connected = 0;
         return FAIL_RETURN;
     }
-#if 1 //SDK1.5.0
+#if 0 //SDK1.5.0
     res = iotx_dm_subscribe(IOTX_DM_LOCAL_NODE_DEVID);
     if (res != SUCCESS_RETURN) {
         dm_log_err("DM Subscribe Failed");
@@ -1507,7 +1509,7 @@ static int user_redirect_event_handler(void)
 {
     iotx_linkkit_ctx_t *ctx = _iotx_linkkit_get_ctx();
 
-    printf("Cloud Redirect\n");
+    //printf("Cloud Redirect\n");
 
     ctx->cloud_redirect = 1;
 

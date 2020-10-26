@@ -102,7 +102,7 @@ low_level_init_patch(struct netif *netif)
   memcpy(netif->hwaddr, gsta_cfg_mac, MAC_ADDR_LEN);
   
   /* maximum transfer unit */
-  netif->mtu = 1500;
+  netif->mtu = 576; //1500;
 
   /* device capabilities */
   /* don't set NETIF_FLAG_ETHARP if this device is not an ethernet one */
@@ -135,7 +135,7 @@ low_level_output_patch(struct netif *netif, struct pbuf *p)
 {
     struct ethernetif *ethernetif = netif->state;
     struct pbuf *q;
-    int full_count = 0;
+    int ret = ERR_OK;
     
     LWIP_UNUSED_ARG(ethernetif);
 
@@ -150,16 +150,8 @@ low_level_output_patch(struct netif *netif, struct pbuf *p)
             dump_buffer(q->payload, q->len, 1);
         #endif
         
-        while (TX_QUEUE_FULL == wifi_mac_tx_start(q->payload, q->len)) {
-            
-            sys_msleep(1);
-            
-            if (full_count == 50) {
-                //printf("__packet_tx_task: retry times reach full count. \n");
-                break;
-            }
-            
-            full_count++;
+        if (TX_QUEUE_FULL == wifi_mac_tx_start(q->payload, q->len)) {
+            ret = ERR_MEM;
         }
     }
     else {
@@ -167,29 +159,19 @@ low_level_output_patch(struct netif *netif, struct pbuf *p)
         
         if (q != NULL) {
             pbuf_copy(q, p);
-        }
-        else {
-            printf("__packet_tx_task: pbuf malloc failed\r\n");
-            return ERR_OK;
-        }
-
         #ifdef TX_PKT_DUMP
             dump_buffer(q->payload, q->len, 1);
         #endif
 
-        while (TX_QUEUE_FULL == wifi_mac_tx_start(q->payload, q->len)) {
-            
-            sys_msleep(1);
-            
-            if (full_count == 50) {
-                //printf("__packet_tx_task: retry times reach full count. \n");
-                break;
+            if (TX_QUEUE_FULL == wifi_mac_tx_start(q->payload, q->len)) {
+                ret = ERR_MEM;
             }
-            
-            full_count++;
+            pbuf_free(q);
         }
-
-        pbuf_free(q);
+        else {
+            printf("__packet_tx_task: pbuf malloc failed\r\n");
+            ret = ERR_MEM;
+        }
     }
 
 #if ETH_PAD_SIZE
@@ -198,7 +180,7 @@ low_level_output_patch(struct netif *netif, struct pbuf *p)
 
     LINK_STATS_INC(link.xmit);
 
-    return ERR_OK;
+    return ret;
 }
 
 void lwip_load_interface_wlannetif_patch(void)

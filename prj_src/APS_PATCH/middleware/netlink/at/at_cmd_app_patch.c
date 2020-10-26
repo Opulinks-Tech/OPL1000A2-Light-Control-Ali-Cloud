@@ -36,6 +36,8 @@ extern volatile bool at_ip_mode;
 extern int at_wifi_status;
 extern int at_wifi_reason;
 extern at_state_type_t mdState;
+#undef printf
+#define printf(...)
 
 int at_wifi_event_handler_cb_patch(wifi_event_id_t event_id, void *data, uint16_t length)
 {

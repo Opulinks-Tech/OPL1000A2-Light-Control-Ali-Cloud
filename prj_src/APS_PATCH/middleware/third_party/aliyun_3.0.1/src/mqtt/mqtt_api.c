@@ -384,7 +384,7 @@ void iotx_conn_info_release(void)
 }
 
 /************************  Public Interface ************************/
-SHM_DATA void *IOT_MQTT_Construct(iotx_mqtt_param_t *pInitParams)
+void *IOT_MQTT_Construct(iotx_mqtt_param_t *pInitParams)
 {
     void *pclient;
     iotx_dev_meta_info_t meta_info;

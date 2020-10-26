@@ -298,7 +298,7 @@ void utils_sha256(const uint8_t *input, uint32_t ilen, uint8_t output[32])
     utils_sha256_free(&ctx);
 }
 
-SHM_DATA void utils_hmac_sha256(const uint8_t *msg, uint32_t msg_len, const uint8_t *key, uint32_t key_len, uint8_t output[32])
+/*SHM_DATA */void utils_hmac_sha256(const uint8_t *msg, uint32_t msg_len, const uint8_t *key, uint32_t key_len, uint8_t output[32])
 {
     iot_sha256_context context;
     uint8_t k_ipad[SHA256_KEY_IOPAD_SIZE];    /* inner padding - key XORd with ipad  */

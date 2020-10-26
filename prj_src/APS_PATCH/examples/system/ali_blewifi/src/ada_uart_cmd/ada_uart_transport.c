@@ -9,7 +9,7 @@
 *  permission of Opulinks Technology Ltd. (C) 2018
 ******************************************************************************/
 
-#ifdef ADA_REMOTE_CTRL
+#if BLEWIFI_REMOTE_CTRL
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,5 +110,5 @@ void ada_ctrl_uart_input_impl(uint32_t data)
     }
 }
 
-#endif //#ifdef ADA_REMOTE_CTRL
+#endif //#if BLEWIFI_REMOTE_CTRL
 

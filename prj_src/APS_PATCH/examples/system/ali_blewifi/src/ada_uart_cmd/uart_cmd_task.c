@@ -9,7 +9,7 @@
 *  permission of Opulinks Technology Ltd. (C) 2018
 ******************************************************************************/
 
-#ifdef ADA_REMOTE_CTRL
+#if BLEWIFI_REMOTE_CTRL
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,7 +75,7 @@ void uart_cmd_task(void *pvParameters)
     osEvent rxEvent;
     uart_event_msg_t *rxMsg;
 
-    tracer_log(LOG_HIGH_LEVEL, "ada_uart_task is created successfully! \r\n");
+    //tracer_log(LOG_HIGH_LEVEL, "ada_uart_task is created successfully! \r\n");
 
     for(;;)
     {
@@ -110,7 +110,7 @@ void uart_cmd_task_create(void)
     g_UartTaskHandleId = osThreadCreate(&uart_task_def, (void *)g_UartTaskHandleId);
     if(g_UartTaskHandleId == NULL)
     {
-        tracer_log(LOG_HIGH_LEVEL, "create thread fail \r\n");
+        //tracer_log(LOG_HIGH_LEVEL, "create thread fail \r\n");
     }
 
     /** create message queue */
@@ -119,7 +119,7 @@ void uart_cmd_task_create(void)
     g_UartTaskQueueId = osMessageCreate(&uart_queue_def, g_UartTaskHandleId);
     if(g_UartTaskQueueId == NULL)
     {
-        tracer_log(LOG_HIGH_LEVEL, "create queue fail \r\n");
+        //tracer_log(LOG_HIGH_LEVEL, "create queue fail \r\n");
     }
 }
 
@@ -153,5 +153,5 @@ void uart_cmd_init(uart_port_t uart_num, uint32_t baud_rate, uart_rx_isr_cb_t is
     Hal_Uart_RxIntEn(eUartIdx, 1);
 }
 
-#endif //#ifdef ADA_REMOTE_CTRL
+#endif //#if BLEWIFI_REMOTE_CTRL
 

@@ -37,7 +37,7 @@
 #include "mbedtls/net_sockets.h"
 #include "lwip/netif.h"
 
-#define hal_err(...)        HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
+#define hal_err(...)        //HAL_Printf("[prt] "), HAL_Printf(__VA_ARGS__), HAL_Printf("\r\n")
 #define SEND_TIMEOUT_SECONDS                (10)
 #define GUIDER_ONLINE_HOSTNAME              ("iot-auth.cn-shanghai.aliyuncs.com")
 #define GUIDER_PRE_ADDRESS                  ("100.67.80.107")
@@ -49,6 +49,8 @@
 #define TCP_LOCAL_PORT_RANGE_START        0xc000
 #define TCP_LOCAL_PORT_RANGE_END          0xffff
 #define TCP_ENSURE_LOCAL_PORT_RANGE(port) ((u16_t)(((port) & ~TCP_LOCAL_PORT_RANGE_START) + TCP_LOCAL_PORT_RANGE_START))
+//#undef printf
+//#define printf(...)
 
 typedef struct _TLSDataParams {
     mbedtls_ssl_context ssl;          /**< mbed TLS control context. */
@@ -107,10 +109,10 @@ static int mbedtls_net_connect_ex( mbedtls_net_context *ctx, const char *host, c
         local_addr.sin_port = htons(TCP_ENSURE_LOCAL_PORT_RANGE((u32_t)rand()));
         local_addr.sin_addr.s_addr = iface->ip_addr.u_addr.ip4.addr;
         if (bind(fd, (struct sockaddr*)&local_addr, sizeof(local_addr)) != 0) {
-            printf("bind failed\n");
+            //printf("bind failed\n");
         }
         
-        printf("local_addr.sin_port=%d\n", local_addr.sin_port);
+        //printf("local_addr.sin_port=%d\n", local_addr.sin_port);
 
     #if 1 // non-blocking
         flags = fcntl(fd, F_GETFL, 0);
@@ -118,7 +120,7 @@ static int mbedtls_net_connect_ex( mbedtls_net_context *ctx, const char *host, c
 
         if ( connect( fd, cur->ai_addr, cur->ai_addrlen ) == 0 ) {
             ctx->fd = fd; // connected!
-            printf("\nxxxxxx----fd=%d\n", fd);
+            printf("\nmbedtls_net_connect_ex----fd=%d\n", fd);
             ret = 0;
             fcntl( fd, F_SETFL, fcntl( fd, F_GETFL, 0 ) & ~O_NONBLOCK );
             break;
@@ -140,7 +142,7 @@ static int mbedtls_net_connect_ex( mbedtls_net_context *ctx, const char *host, c
                 if (selres > 0) {
                     //if (FD_ISSET(fd, &rfds) || FD_ISSET(fd, &wfds))
                     if (FD_ISSET(fd, &wfds)) {
-                        printf("\nxxxxxx----fd=%d\n", fd);
+                        printf("\nmbedtls_net_connect_ex----fd=%d\n", fd);
                         ctx->fd = fd; // connected!
                         ret = 0;
                         fcntl( fd, F_SETFL, fcntl( fd, F_GETFL, 0 ) & ~O_NONBLOCK );
@@ -234,7 +236,7 @@ SHM_DATA int mbedtls_net_send_timeout( void *ctx, const unsigned char *buf, size
     t.tv_sec = ALI_NET_SEND_TIMEOUT;
     t.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof(t)) != 0) {
-        printf("set timeout failed.\n");
+        //printf("set timeout failed.\n");
 
         if ((ret = tcp_poll_write(fd, (ALI_NET_SEND_TIMEOUT * 1000))) <= 0) {
             hal_err("tcp write timeout");
@@ -334,7 +336,7 @@ static int ssl_deserialize_session(mbedtls_ssl_session *session,
         }
         memcpy(session->ticket, p, session->ticket_len);
         p += session->ticket_len;
-        printf("saved ticket len = %d \r\n", (int)session->ticket_len);
+        //printf("saved ticket len = %d \r\n", (int)session->ticket_len);
     }
 #endif
 
@@ -372,32 +374,32 @@ static void _ssl_debug(void *ctx, int level, const char *file, int line, const c
         fprintf((FILE *) ctx, "%s:%04d: %s", file, line, str);
         fflush((FILE *) ctx);
 #endif
-        printf("%s\n", str);
+        //printf("%s\n", str);
     }
 }
 
 static int _real_confirm(int verify_result)
 {
-    printf("certificate verification result: 0x%02x\n", verify_result);
+    //printf("certificate verification result: 0x%02x\n", verify_result);
 
 #if defined(FORCE_SSL_VERIFY)
     if ((verify_result & MBEDTLS_X509_BADCERT_EXPIRED) != 0) {
-        printf("! fail ! ERROR_CERTIFICATE_EXPIRED\n");
+        //printf("! fail ! ERROR_CERTIFICATE_EXPIRED\n");
         return -1;
     }
 
     if ((verify_result & MBEDTLS_X509_BADCERT_REVOKED) != 0) {
-        printf("! fail ! server certificate has been revoked\n");
+        //printf("! fail ! server certificate has been revoked\n");
         return -1;
     }
 
     if ((verify_result & MBEDTLS_X509_BADCERT_CN_MISMATCH) != 0) {
-        printf("! fail ! CN mismatch\n");
+        //printf("! fail ! CN mismatch\n");
         return -1;
     }
 
     if ((verify_result & MBEDTLS_X509_BADCERT_NOT_TRUSTED) != 0) {
-        printf("! fail ! self-signed or not signed by a trusted CA\n");
+        //printf("! fail ! self-signed or not signed by a trusted CA\n");
         return -1;
     }
 #endif
@@ -442,14 +444,14 @@ static int _ssl_client_init(mbedtls_ssl_context *ssl,
      * 0. Initialize certificates
      */
 
-    printf("Loading the CA root certificate ...\n");
+    //printf("Loading the CA root certificate ...\n");
     if (NULL != ca_crt) {
         if (0 != (ret = mbedtls_x509_crt_parse(crt509_ca, (const unsigned char *)ca_crt, ca_len))) {
-            printf(" failed ! x509parse_crt returned -0x%04x\n", -ret);
+            //printf(" failed ! x509parse_crt returned -0x%04x\n", -ret);
             return ret;
         }
     }
-    printf(" ok (%d skipped)\n", ret);
+    //printf(" ok (%d skipped)\n", ret);
 
 
     /* Setup Client Cert/Key */
@@ -460,31 +462,31 @@ static int _ssl_client_init(mbedtls_ssl_context *ssl,
 #endif
     if (cli_crt != NULL && cli_key != NULL) {
 #if defined(MBEDTLS_CERTS_C)
-        printf("start prepare client cert .\n");
+        //printf("start prepare client cert .\n");
         ret = mbedtls_x509_crt_parse(crt509_cli, (const unsigned char *) cli_crt, cli_len);
 #else
         {
             ret = 1;
-            printf("MBEDTLS_CERTS_C not defined.\n");
+            //printf("MBEDTLS_CERTS_C not defined.\n");
         }
 #endif
         if (ret != 0) {
-            printf(" failed!  mbedtls_x509_crt_parse returned -0x%x\n", -ret);
+            //printf(" failed!  mbedtls_x509_crt_parse returned -0x%x\n", -ret);
             return ret;
         }
 
 #if defined(MBEDTLS_CERTS_C)
-        printf("start mbedtls_pk_parse_key[%s]\n", cli_pwd);
+        //printf("start mbedtls_pk_parse_key[%s]\n", cli_pwd);
         ret = mbedtls_pk_parse_key(pk_cli, (const unsigned char *) cli_key, key_len, (const unsigned char *) cli_pwd, pwd_len);
 #else
         {
             ret = 1;
-            printf("MBEDTLS_CERTS_C not defined.\n");
+            //printf("MBEDTLS_CERTS_C not defined.\n");
         }
 #endif
 
         if (ret != 0) {
-            printf(" failed\n  !  mbedtls_pk_parse_key returned -0x%x\n", -ret);
+            //printf(" failed\n  !  mbedtls_pk_parse_key returned -0x%x\n", -ret);
             return ret;
         }
     }
@@ -538,7 +540,7 @@ static int mbedtls_net_connect_timeout(mbedtls_net_context *ctx, const char *hos
     while(dns_retry++ < 8) {
         ret = getaddrinfo(host, port, &hints, &addr_list);
         if (ret != 0) {
-            printf("getaddrinfo error[%d], res: %s, host: %s, port: %s\n", dns_retry, gai_strerror(ret), host, port);
+            //printf("getaddrinfo error[%d], res: %s, host: %s, port: %s\n", dns_retry, gai_strerror(ret), host, port);
             sleep(1);
             continue;
         }else{
@@ -567,12 +569,12 @@ static int mbedtls_net_connect_timeout(mbedtls_net_context *ctx, const char *hos
 
         if (0 != setsockopt(ctx->fd, SOL_SOCKET, SO_SNDTIMEO, &sendtimeout, sizeof(sendtimeout))) {
             perror("setsockopt");
-            printf("setsockopt error\n");
+            //printf("setsockopt error\n");
         }
-        printf("setsockopt SO_SNDTIMEO timeout: %ds\n", (int)sendtimeout.tv_sec);
+        //printf("setsockopt SO_SNDTIMEO timeout: %ds\n", (int)sendtimeout.tv_sec);
 
         inet_ntop(AF_INET, &((const struct sockaddr_in *)cur->ai_addr)->sin_addr, ip4_str, INET_ADDRSTRLEN);
-        printf("connecting IP_ADDRESS: %s\n", ip4_str);
+        //printf("connecting IP_ADDRESS: %s\n", ip4_str);
 
         if (connect(ctx->fd, cur->ai_addr, cur->ai_addrlen) == 0) {
             ret = 0;
@@ -630,7 +632,7 @@ void _SSLFree_wrapper(void *ptr)
 
     mem_info = (mbedtls_mem_info_t *)((unsigned char *)ptr - sizeof(mbedtls_mem_info_t));
     if (mem_info->magic != MBEDTLS_MEM_INFO_MAGIC) {
-        printf("Warning - invalid mem info magic: 0x%x\r\n", mem_info->magic);
+        //printf("Warning - invalid mem info magic: 0x%x\r\n", mem_info->magic);
         return;
     }
 
@@ -702,7 +704,7 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
         return ret;
     }
 #endif
-    printf(" ok\n");
+    //printf(" ok\n");
 
     /*
      * 2. Setup stuff
@@ -710,14 +712,14 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
     printf("  . Setting up the SSL/TLS structure...\n");
     if ((ret = mbedtls_ssl_config_defaults(&(pTlsData->conf), MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM,
                                            MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-        printf(" failed! mbedtls_ssl_config_defaults returned %d\n", ret);
+        //printf(" failed! mbedtls_ssl_config_defaults returned %d\n", ret);
         return ret;
     }
 
     mbedtls_ssl_conf_max_version(&pTlsData->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
     mbedtls_ssl_conf_min_version(&pTlsData->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
 
-    printf(" ok\n");
+    //printf(" ok\n");
 
     /* OPTIONAL is not optimal for security, but makes interop easier in this simplified example */
     if (ca_crt != NULL) {
@@ -734,20 +736,27 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
     mbedtls_ssl_conf_ca_chain(&(pTlsData->conf), &(pTlsData->cacertl), NULL);
 
     if ((ret = mbedtls_ssl_conf_own_cert(&(pTlsData->conf), &(pTlsData->clicert), &(pTlsData->pkey))) != 0) {
-        printf(" failed\n  ! mbedtls_ssl_conf_own_cert returned %d\n", ret);
+        //printf(" failed\n  ! mbedtls_ssl_conf_own_cert returned %d\n", ret);
         return ret;
     }
 #endif
     mbedtls_ssl_conf_rng(&(pTlsData->conf), _ssl_random, NULL);
     mbedtls_ssl_conf_dbg(&(pTlsData->conf), _ssl_debug, NULL);
     mbedtls_ssl_conf_dbg(&(pTlsData->conf), _ssl_debug, stdout);
+    {
+        int ret=0;
+        ret=mbedtls_ssl_conf_max_frag_len(&(pTlsData->conf),MBEDTLS_SSL_MAX_FRAG_LEN_4096);
+        (void)ret;
+        mbedtls_ssl_config_max_content_len(4096);
+        //printf("try max fram len %d \r\n",pTlsData->conf.mfl_code);
+    }
 
     if ((ret = mbedtls_ssl_setup(&(pTlsData->ssl), &(pTlsData->conf))) != 0) {
-        printf("failed! mbedtls_ssl_setup returned %d\n", ret);
+        //printf("failed! mbedtls_ssl_setup returned %d\n", ret);
         return ret;
     }
 #if defined(ON_PRE) || defined(ON_DAILY)
-    printf("SKIPPING mbedtls_ssl_set_hostname() when ON_PRE or ON_DAILY defined!\n");
+    //printf("SKIPPING mbedtls_ssl_set_hostname() when ON_PRE or ON_DAILY defined!\n");
 #else
     mbedtls_ssl_set_hostname(&(pTlsData->ssl), addr);
 #endif
@@ -761,14 +770,14 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
             int len = TLS_MAX_SESSION_BUF;
             unsigned char *save_buf = HAL_Malloc(TLS_MAX_SESSION_BUF);
             if (save_buf ==  NULL) {
-                printf(" malloc failed\r\n");
+                //printf(" malloc failed\r\n");
                 break;
             }
 
             saved_session = HAL_Malloc(sizeof(mbedtls_ssl_session));
 
             if (saved_session == NULL) {
-                printf(" malloc failed\r\n");
+                //printf(" malloc failed\r\n");
                 HAL_Free(save_buf);
                 save_buf =  NULL;
                 break;
@@ -781,7 +790,7 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
             ret = HAL_Kv_Get(KV_SESSION_KEY, save_buf, &len);
 
             if (ret != 0 || len == 0) {
-                printf(" kv get failed len=%d,ret = %d\r\n", len, ret);
+                //printf(" kv get failed len=%d,ret = %d\r\n", len, ret);
                 HAL_Free(saved_session);
                 HAL_Free(save_buf);
                 save_buf = NULL;
@@ -790,7 +799,7 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
             }
             ret = ssl_deserialize_session(saved_session, save_buf, len);
             if (ret < 0) {
-                printf("ssl_deserialize_session err,ret = %d\r\n", ret);
+                //printf("ssl_deserialize_session err,ret = %d\r\n", ret);
                 HAL_Free(saved_session);
                 HAL_Free(save_buf);
                 save_buf = NULL;
@@ -803,7 +812,7 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
 
     if (NULL != saved_session) {
         mbedtls_ssl_set_session(&(pTlsData->ssl), saved_session);
-        printf("use saved session!!\r\n");
+        //printf("use saved session!!\r\n");
     }
 #endif
     /*
@@ -814,11 +823,11 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
 
     while ((ret = mbedtls_ssl_handshake(&(pTlsData->ssl))) != 0) {
         if ((ret != MBEDTLS_ERR_SSL_WANT_READ) && (ret != MBEDTLS_ERR_SSL_WANT_WRITE)) {
-            printf("failed  ! mbedtls_ssl_handshake returned -0x%04x\n", -ret);
+            //printf("failed  ! mbedtls_ssl_handshake returned -0x%04x\n", -ret);
             return ret;
         }
     }
-    printf(" ok\n");
+    //printf(" ok\n");
 
 #if defined(TLS_SAVE_TICKET)
     if (NULL == saved_session) {
@@ -845,7 +854,7 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
                 break;
             }
             ret = ssl_serialize_session(saved_session, save_buf, TLS_MAX_SESSION_BUF, &real_session_len);
-            printf("mbedtls_ssl_get_session_session return 0x%04x real_len=%d\r\n", ret, (int)real_session_len);
+            //printf("mbedtls_ssl_get_session_session return 0x%04x real_len=%d\r\n", ret, (int)real_session_len);
             if (ret == 0) {
                 HAL_Kv_Set(KV_SESSION_KEY, (void *)save_buf, real_session_len, 1);
             }
@@ -857,9 +866,9 @@ static int _TLSConnectNetwork(TLSDataParams_t *pTlsData, const char *addr, const
     /*
      * 5. Verify the server certificate
      */
-    printf("  . Verifying peer X.509 certificate..\n");
+    //printf("  . Verifying peer X.509 certificate..\n");
     if (0 != (ret = _real_confirm(mbedtls_ssl_get_verify_result(&(pTlsData->ssl))))) {
-        printf(" failed  ! verify result not confirmed.\n");
+        //printf(" failed  ! verify result not confirmed.\n");
         return ret;
     }
     /* n->my_socket = (int)((n->tlsdataparams.fd).fd); */
@@ -1061,7 +1070,7 @@ static void _network_ssl_disconnect(TLSDataParams_t *pTlsData)
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
     mbedtls_x509_crt_free(&(pTlsData->cacertl));
     if ((pTlsData->pkey).pk_info != NULL) {
-        printf("need release client crt&key\n");
+        ;//printf("need release client crt&key\n");
 #if defined(MBEDTLS_CERTS_C)
         mbedtls_x509_crt_free(&(pTlsData->clicert));
         mbedtls_pk_free(&(pTlsData->pkey));
@@ -1086,7 +1095,7 @@ int HAL_SSL_Write(uintptr_t handle, const char *buf, int len, int timeout_ms)
 int32_t HAL_SSL_Destroy(uintptr_t handle)
 {
     if ((uintptr_t)NULL == handle) {
-        printf("handle is NULL\n");
+        //printf("handle is NULL\n");
         return 0;
     }
 
@@ -1117,12 +1126,12 @@ uintptr_t HAL_SSL_Establish(const char *host,
     TLSDataParams_pt    pTlsData;
 
     if (host == NULL || ca_crt == NULL) {
-        printf("input params are NULL, abort\n");
+        //printf("input params are NULL, abort\n");
         return 0;
     }
 
     if (!strlen(host) || (strlen(host) < 8)) {
-        printf("invalid host: '%s'(len=%d), abort\n", host, (int)strlen(host));
+        //printf("invalid host: '%s'(len=%d), abort\n", host, (int)strlen(host));
         return 0;
     }
 
@@ -1136,7 +1145,7 @@ uintptr_t HAL_SSL_Establish(const char *host,
 
 #if defined(ON_PRE)
     if (!strcmp(GUIDER_ONLINE_HOSTNAME, host)) {
-        printf("ALTERING '%s' to '%s' since ON_PRE defined!\n", host, GUIDER_PRE_ADDRESS);
+        //printf("ALTERING '%s' to '%s' since ON_PRE defined!\n", host, GUIDER_PRE_ADDRESS);
         alter = GUIDER_PRE_ADDRESS;
     }
 #endif

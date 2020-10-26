@@ -23,6 +23,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define DELIMITER_NUM (4)  // The total count of ',' in colud info data.
+#define U32_CONVERT_TO_CHAR_MAX_SIZE (10)  //"4,294,967,295"
+#define RSP_CLOUD_INFO_READ_PAYLOAD_SIZE (U32_CONVERT_TO_CHAR_MAX_SIZE + IOTX_PRODUCT_KEY_LEN + IOTX_PRODUCT_SECRET_LEN + IOTX_DEVICE_NAME_LEN + IOTX_DEVICE_SECRET_LEN + DELIMITER_NUM + 1)
 
 enum
 {

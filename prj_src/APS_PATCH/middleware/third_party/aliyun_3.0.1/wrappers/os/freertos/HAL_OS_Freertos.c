@@ -46,6 +46,8 @@
 #define MID_STRLEN_MAX              (64)
 #define HAL_CID_LEN                 (64 + 1)
 
+#undef printf
+#define printf(...)
 #ifdef __DEMO__
     char _product_key[PRODUCT_KEY_LEN + 1];
     char _product_secret[PRODUCT_SECRET_LEN + 1];
@@ -857,7 +859,7 @@ void HAL_Firmware_Persistence_Start(void) {
 }
 
 
-SHM_DATA int HAL_Firmware_Persistence_Write(_IN_ char *buffer, _IN_ uint32_t length)
+int HAL_Firmware_Persistence_Write(_IN_ char *buffer, _IN_ uint32_t length)
 {
     int iRet = -1;
     T_MwOtaFlashHeader *ota_hdr = NULL;

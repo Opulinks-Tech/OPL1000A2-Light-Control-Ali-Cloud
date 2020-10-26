@@ -13,6 +13,8 @@
 #include <aos/list.h>
 #include "breeze_hal_os.h"
 
+#undef printf
+#define printf(...)
 struct bt_conn *g_conn = NULL;
 ais_bt_init_t * bt_init_info = NULL;
 

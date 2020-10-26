@@ -131,7 +131,7 @@ void awss_report_token_reply(void *pcontext, void *pclient, void *msg)
 }
 
 #ifdef WIFI_PROVISION_ENABLED
-SHM_DATA void awss_online_switchap(void *pcontext, void *pclient, void *msg)
+void awss_online_switchap(void *pcontext, void *pclient, void *msg)
 {
 #define SWITCHAP_RSP_LEN   (64)
 #define AWSS_BSSID_STR_LEN (17)

@@ -26,6 +26,8 @@
 SHM_DATA core_t g_core;
 extern auth_t g_auth;
 
+#undef printf
+#define printf(...)
 #ifdef CONFIG_AIS_SECURE_ADV
 #define AIS_SEQ_KV_KEY      "ais_adv_seq"
 #define AIS_SEQ_UPDATE_FREQ (1 * 60 * 60) /* in second uint */

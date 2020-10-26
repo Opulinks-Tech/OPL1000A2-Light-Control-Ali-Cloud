@@ -44,9 +44,11 @@ extern bool g_Indi_flag;
 
 extern LE_ERR_STATE LeGapGetBdAddr(BD_ADDR addr);
 extern T_BleWifi_Ble_MsgHandlerTbl gBleGattMsgHandlerTbl[];
+#undef printf
+#define printf(...)
 
 //static BLE_APP_DATA_T gTheBle;
-BLE_APP_DATA_T gTheBle;
+SHM_DATA BLE_APP_DATA_T gTheBle;
 static BLE_ADV_TIME_T gTheBleAdvTime;
 
 static void BleWifi_Ble_SmMsgHandler_PairingActionInd(TASK task, MESSAGEID id, MESSAGE message);
@@ -544,16 +546,27 @@ exit:
 static void BleWifi_Ble_SetScanData(void)
 {
 #ifndef ALI_BLE_WIFI_PROVISION	
-    T_MwFim_GP11_BleDeviceName tBleDeviceName;    
+    //T_MwFim_GP11_BleDeviceName tBleDeviceName;    
     uint8_t ubLen;
     BOOL isOk = FALSE;
 
+#if 1
+    T_MwFim_GP11_BleDeviceName tBleDeviceName =
+    {
+        .ubNameMethod           = BLEWIFI_BLE_DEVICE_NAME_METHOD,
+        .ubNamePostfixMacCount  = BLEWIFI_BLE_DEVICE_NAME_POST_COUNT,
+        .ubaNamePrefix          = BLEWIFI_BLE_DEVICE_NAME_PREFIX,
+        .ubaNameFull            = BLEWIFI_BLE_DEVICE_NAME_FULL,
+        .ubaReserved            = {0xFF, 0xFF}
+    };
+#else
     // get the settings of BLE device name
     if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP11_PROJECT_BLE_DEVICE_NAME, 0, MW_FIM_GP11_BLE_DEVICE_NAME_SIZE, (uint8_t*)&tBleDeviceName))
     {
         // if fail, get the default value
         memcpy(&tBleDeviceName, &g_tMwFimDefaultGp11BleDeviceName, MW_FIM_GP11_BLE_DEVICE_NAME_SIZE);
     }
+#endif
     
     if (tBleDeviceName.ubNameMethod == 1)
     {
@@ -631,17 +644,23 @@ static void BleWifi_Ble_SetScanData(void)
 
 static void BleWifi_Ble_CmMsgHandler_InitCompleteCfm(TASK task, MESSAGEID id, MESSAGE message)
 {
-    T_MwFim_GP11_BleAdvInterval tBleAdvInterval;
+    T_MwFim_GP11_BleAdvInterval tBleAdvInterval = 
+    {
+        BLEWIFI_BLE_ADVERTISEMENT_INTERVAL_MIN, // uint16_t uwIntervalMin;
+        BLEWIFI_BLE_ADVERTISEMENT_INTERVAL_MAX  // uint16_t uwIntervalMax;
+    };
 
     // !!! after LeCmInit
     BLEWIFI_INFO("APP-LE_CM_MSG_INIT_COMPLETE_CFM\r\n");
 
+#if 0
     // get the settings of BLE advertisement interval
     if (MW_FIM_OK != MwFim_FileRead(MW_FIM_IDX_GP11_PROJECT_BLE_ADV_INTERVAL, 0, MW_FIM_GP11_BLE_ADV_INTERVAL_SIZE, (uint8_t*)&tBleAdvInterval))
     {
         // if fail, get the default value
         memcpy(&tBleAdvInterval, &g_tMwFimDefaultGp11BleAdvInterval, MW_FIM_GP11_BLE_ADV_INTERVAL_SIZE);
     }
+#endif
     
     LeGattInit(&gTheBle.task);
     LeSmpInit(&gTheBle.task);

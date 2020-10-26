@@ -35,7 +35,7 @@
 #include "mw_fim_default_group01.h"
 #include "mw_fim_default_group02.h"
 #include "mw_fim_default_group03.h"
-#include "ps.h"
+#include "ps_patch.h"
 #include "sys_common_api.h"
 #include "sys_common_types.h"
 #include "hal_flash.h"
@@ -121,7 +121,7 @@ int at_cmd_sys_gslp_patch(char *buf, int len, int mode)
 
 			if (argc == 3)
             {
-                Hal_Pin_ConfigSet(num, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+                Hal_Pin_ConfigSet(num, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_FLOAT);
                 ps_set_wakeup_io((E_GpioIdx_t) num, 1, INT_TYPE_LEVEL, 0, at_cmd_sys_gslp_io_callback);
             }
 			ps_set_wakeup_cb(at_cmd_sys_gslp_wakeup_callback);
@@ -137,6 +137,27 @@ int at_cmd_sys_gslp_patch(char *buf, int len, int mode)
 	}
 
     return true;
+}
+
+/*
+ * @brief Command at+restore
+ *
+ * @param [in] argc count of parameters
+ *
+ * @param [in] argv parameters array
+ *
+ * @return 0 fail 1 success
+ *
+ */
+int at_cmd_sys_restore_patch(char *buf, int len, int mode)
+{
+    if (AT_CMD_MODE_EXECUTION == mode)
+    {
+        MwFim_FileWriteDefault(MW_FIM_IDX_GP03_LE_CFG, 0);
+    }
+
+    extern int at_cmd_sys_restore(char *buf, int len, int mode);
+    return at_cmd_sys_restore(buf, len, mode);
 }
 
 /*
@@ -174,7 +195,7 @@ int at_cmd_sys_sleep_patch(char *buf, int len, int mode)
 				case 1:
 					if (argc == 3)
                     {
-                        Hal_Pin_ConfigSet(p1, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+                        Hal_Pin_ConfigSet(p1, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_FLOAT);
                         ps_set_wakeup_io((E_GpioIdx_t) p1, 1, INT_TYPE_LEVEL, 0, at_cmd_sys_gslp_io_callback);
                     }
                     ps_set_wakeup_cb(at_cmd_sys_gslp_wakeup_callback);
@@ -185,7 +206,7 @@ int at_cmd_sys_sleep_patch(char *buf, int len, int mode)
 				case 2:
 					if (argc == 4)
                     {
-                        Hal_Pin_ConfigSet(p2, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+                        Hal_Pin_ConfigSet(p2, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_FLOAT);
                         ps_set_wakeup_io((E_GpioIdx_t) p2, 1, INT_TYPE_LEVEL, 0, at_cmd_sys_gslp_io_callback);
                     }
 					ps_set_wakeup_cb(at_cmd_sys_gslp_wakeup_callback);
@@ -196,7 +217,7 @@ int at_cmd_sys_sleep_patch(char *buf, int len, int mode)
 				case 3:
 					if (argc == 3)
                     {
-                        Hal_Pin_ConfigSet(p1, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_HIGH);
+                        Hal_Pin_ConfigSet(p1, PIN_TYPE_GPIO_INPUT, PIN_DRIVING_FLOAT);
                         ps_set_wakeup_io((E_GpioIdx_t) p1, 1, INT_TYPE_LEVEL, 0, NULL);
                     }
 					ps_deep_sleep();
@@ -229,7 +250,7 @@ int at_cmd_sys_sleep_patch(char *buf, int len, int mode)
  */
 int at_cmd_sys_fwver_patch(char *buf, int len, int mode)
 {
-    uint16_t uwProjectId = 0;
+	uint16_t uwProjectId = 0;
     uint16_t uwChipId = 0;
     uint16_t uwFirmwareId = 0;
 
@@ -257,6 +278,27 @@ int at_cmd_sys_fwver_patch(char *buf, int len, int mode)
     return true;
 }
 
+int at_cmd_at_slp_tmr_patch(char *buf, int len, int mode)
+{
+    uint32_t duration_ms = 1000;
+
+    if (mode == AT_CMD_MODE_SET)
+    {
+        int argc = 0;
+        char *argv[AT_MAX_CMD_ARGS] = {0};
+        at_cmd_buf_to_argc_argv(buf, &argc, argv, AT_MAX_CMD_ARGS);
+
+        duration_ms = atoi(argv[1]);
+        if (duration_ms <= 0)
+            duration_ms = 1;
+    }
+
+    double xtal_freq = ps_32k_xtal_measure(duration_ms);
+
+    msg_print_uart1("\r\n32K XTAL Freq: %.2f\n\r", xtal_freq);
+    return true;
+}
+
 /**
   * @brief AT Command Table for System Module
   *
@@ -275,12 +317,13 @@ extern at_command_t *g_AtCmdTbl_Sys_Ptr;
  */
 void at_cmd_sys_func_init_patch(void)
 {
-#if 1
-    extern void at_cmd_sys_func_init(void);
+#ifdef SDK_LITE
+	extern void at_cmd_sys_func_init(void);
 
-    at_cmd_sys_func_init();
+	at_cmd_sys_func_init();
 
     gAtCmdTbl_Sys[1].cmd_handle = at_cmd_sys_gmr_patch;
+    //gAtCmdTbl_Sys[3].cmd_handle = at_cmd_sys_restore_patch;
     gAtCmdTbl_Sys[15].cmd_handle = at_cmd_sys_fwver_patch;
 #else
     /** Command Table (System) */
@@ -288,8 +331,10 @@ void at_cmd_sys_func_init_patch(void)
 
     gAtCmdTbl_Sys[1].cmd_handle = at_cmd_sys_gmr_patch;
     gAtCmdTbl_Sys[2].cmd_handle = at_cmd_sys_gslp_patch;
+    gAtCmdTbl_Sys[3].cmd_handle = at_cmd_sys_restore_patch;
     gAtCmdTbl_Sys[7].cmd_handle = at_cmd_sys_sleep_patch;
     gAtCmdTbl_Sys[15].cmd_handle = at_cmd_sys_fwver_patch;
+    gAtCmdTbl_Sys[30].cmd_handle = at_cmd_at_slp_tmr_patch;
 
     g_u32FlashReadStart         = AT_FLASH_READ_START;
     g_u32FlashReadEnd           = AT_FLASH_READ_END;

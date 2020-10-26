@@ -9,7 +9,7 @@
 *  permission of Opulinks Technology Ltd. (C) 2018
 ******************************************************************************/
 
-#ifdef ADA_REMOTE_CTRL
+#if BLEWIFI_REMOTE_CTRL
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +20,8 @@
 #include "ada_lightbulb.h"
 #include "light_control.h"
 #include "blewifi_ctrl.h"
+
+#include "infra_config.h"
 
 #define bswap16(x) ((((x) & 0xff) << 8) | (((x) >> 8) & 0xff))
 
@@ -37,26 +39,26 @@ typedef struct
   * @brief ADA Uart Command Table for LED control
   *
   */
-key_cmd_handler_table_t g_key_cmd_handler_tbl[] =
+SHM_DATA key_cmd_handler_table_t g_key_cmd_handler_tbl[] =
 {
-    {VK_CODE_BLEADV_ON,                 ada_cmd_bleadv_on            },
+    //{VK_CODE_BLEADV_ON,                 ada_cmd_bleadv_on            },
 
     {VK_CODE_POWER_ON,                  ada_cmd_power_on             },
     {VK_CODE_POWER_OFF,                 ada_cmd_power_off            },
     {VK_CODE_BRIGHTNESS_ADD,            ada_cmd_brightness_add       },
     {VK_CODE_BRIGHTNESS_SUB,            ada_cmd_brightness_sub       },
-    {VK_CODE_COLOR_ADD,                 ada_cmd_color_saturation_add },
-    {VK_CODE_COLOR_SUB,                 ada_cmd_color_saturation_sub },
+    //{VK_CODE_COLOR_ADD,                 ada_cmd_color_saturation_add },
+    //{VK_CODE_COLOR_SUB,                 ada_cmd_color_saturation_sub },
 
-    {VK_CODE_NEUTRAL_LIGHT,             ada_cmd_neutral_light        },
-    {VK_CODE_NIGHT_LIGHT,               ada_cmd_night_light          },
+    //{VK_CODE_NEUTRAL_LIGHT,             ada_cmd_neutral_light        },
+    //{VK_CODE_NIGHT_LIGHT,               ada_cmd_night_light          },
 
-    {VK_CODE_SWITCH_MODE,               ada_cmd_switch_mode          },
+    //{VK_CODE_SWITCH_MODE,               ada_cmd_switch_mode          },
 
-    {VK_CODE_C10_W90,                   ada_cmd_c10_w90              },
-    {VK_CODE_C30_W70,                   ada_cmd_c30_w70              },
-    {VK_CODE_C70_W30,                   ada_cmd_c70_w30              },
-    {VK_CODE_C90_W10,                   ada_cmd_c90_w10              },
+    //{VK_CODE_C10_W90,                   ada_cmd_c10_w90              },
+    //{VK_CODE_C30_W70,                   ada_cmd_c30_w70              },
+    //{VK_CODE_C70_W30,                   ada_cmd_c70_w30              },
+    //{VK_CODE_C90_W10,                   ada_cmd_c90_w10              },
 
     {VK_CODE_RED,                       ada_cmd_set_color_red        },
     {VK_CODE_RED1,                      ada_cmd_set_color_red        },
@@ -77,27 +79,27 @@ key_cmd_handler_table_t g_key_cmd_handler_tbl[] =
     {VK_CODE_BLUE5,                     ada_cmd_set_color_blue       },
 
     {VK_CODE_RGB1,                      ada_cmd_set_color_rgb        },
-    {VK_CODE_RGB2,                      ada_cmd_set_color_rgb        },
-    {VK_CODE_RGB3,                      ada_cmd_set_color_rgb        },
-    {VK_CODE_RGB4,                      ada_cmd_set_color_rgb        },
-    {VK_CODE_RGB5,                      ada_cmd_set_color_rgb        },
+    //{VK_CODE_RGB2,                      ada_cmd_set_color_rgb        },
+    //{VK_CODE_RGB3,                      ada_cmd_set_color_rgb        },
+    //{VK_CODE_RGB4,                      ada_cmd_set_color_rgb        },
+    //{VK_CODE_RGB5,                      ada_cmd_set_color_rgb        },
 
     {VK_CODE_RGB_8COLOR_FADE_SLOW,      ada_cmd_rgb_8color_fade_slow },
-    {VK_CODE_RGB_8COLOR_FADE_FAST,      ada_cmd_rgb_8color_fade_fast },
+    //{VK_CODE_RGB_8COLOR_FADE_FAST,      ada_cmd_rgb_8color_fade_fast },
     {VK_CODE_RGB_3COLOR_LOOP,           ada_cmd_rgb_3color_loop      },
-    {VK_CODE_RGB_7COLOR_LOOP,           ada_cmd_rgb_7color_loop      },
+    //{VK_CODE_RGB_7COLOR_LOOP,           ada_cmd_rgb_7color_loop      },
 
     {VK_CODE_SPEED_ADD,                 ada_cmd_speed_add            },
     {VK_CODE_SPEED_SUB,                 ada_cmd_speed_sub            },
-    {VK_CODE_LIGHT_MODE_ADD,            ada_cmd_light_mode_add       },
-    {VK_CODE_LIGHT_MODE_SUB,            ada_cmd_light_mode_sub       },
+    //{VK_CODE_LIGHT_MODE_ADD,            ada_cmd_light_mode_add       },
+    //{VK_CODE_LIGHT_MODE_SUB,            ada_cmd_light_mode_sub       },
 
-    {VK_CODE_STYLE_MANUAL,              ada_cmd_style_manual         },
-    {VK_CODE_STYLE_READING,             ada_cmd_style_reading        },
-    {VK_CODE_STYLE_CINEMA,              ada_cmd_style_cinema         },
-    {VK_CODE_STYLE_MIDNIGHT,            ada_cmd_style_midnight       },
-    {VK_CODE_STYLE_LIFE,                ada_cmd_style_life           },
-    {VK_CODE_STYLE_SOFTWHIT,            ada_cmd_style_softwhite      },
+    //{VK_CODE_STYLE_MANUAL,              ada_cmd_style_manual         },
+    //{VK_CODE_STYLE_READING,             ada_cmd_style_reading        },
+    //{VK_CODE_STYLE_CINEMA,              ada_cmd_style_cinema         },
+    //{VK_CODE_STYLE_MIDNIGHT,            ada_cmd_style_midnight       },
+    //{VK_CODE_STYLE_LIFE,                ada_cmd_style_life           },
+    //{VK_CODE_STYLE_SOFTWHIT,            ada_cmd_style_softwhite      },
     {0xFF,                                                  NULL     }
 };
 
@@ -116,6 +118,8 @@ void dump_cmd_packet(char *pbuf, uint16_t len)
 void key_cmd_handler(uint8_t key_value , uint8_t key_state)
 {
     int i =0;
+    if (true == BleWifi_Ctrl_EventStatusGet(BLEWIFI_CTRL_EVENT_BIT_NETWORK))
+        return;
     while (g_key_cmd_handler_tbl[i].key_cmd != 0xFF)
     {
         // match
@@ -211,5 +215,5 @@ int uart_cmd_process(void *pbuf, uint16_t len)
     return 0;
 }
 
-#endif //#ifdef ADA_REMOTE_CTRL
+#endif //#if BLEWIFI_REMOTE_CTRL
 

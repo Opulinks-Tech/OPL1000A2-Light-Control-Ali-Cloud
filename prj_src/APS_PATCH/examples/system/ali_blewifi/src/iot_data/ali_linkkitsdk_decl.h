@@ -32,6 +32,8 @@
 #include "iot_rb_data.h"
 #include "light_control.h"
 
+#include "blewifi_configuration.h"
+
 #define SET_BIT(x,n) ((x)|=(1<<(n)))
 #define CHK_BIT(x,n) (((x)&(1<<(n)))!=0)
 
@@ -61,6 +63,8 @@ enum light_property{
     PROPERTY_RGBCOLOR,
     PROPERTY_SCENESCOLOR,
     PROPERTY_LOCALTIMER,
+    
+    PROPERTY_RHYON,
 
     PROPERTY_INIT,
     PROPERTY_MAX = PROPERTY_INIT
@@ -80,7 +84,7 @@ typedef struct {
 
 #define USER_EXAMPLE_YIELD_TIMEOUT_MS (200) //Kevin add it
 
-#ifdef ADA_REMOTE_CTRL
+#ifdef BLEWIFI_MIN_LOG
 //#define EXAMPLE_TRACE(...)
 #define EXAMPLE_TRACE(...)      {HAL_Printf(__VA_ARGS__); HAL_Printf("\n");}
 #else

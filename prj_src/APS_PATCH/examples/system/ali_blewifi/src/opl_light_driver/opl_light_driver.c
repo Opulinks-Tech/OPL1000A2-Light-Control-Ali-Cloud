@@ -24,6 +24,8 @@
 #include "infra_config.h"
 
 #define USER_LIGHT_FILCKER_HZ       LIGHT_FLICKER_4K_HZ
+#undef printf
+#define printf(...)
 
 typedef struct
 {

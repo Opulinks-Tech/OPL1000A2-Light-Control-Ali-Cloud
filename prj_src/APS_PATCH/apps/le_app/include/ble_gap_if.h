@@ -369,7 +369,7 @@ LE_ERR_STATE LeGapAddToResolvingList(LE_BT_ADDR_T *bt_addr, UINT8 *irk);
  *         - SYS_ERR_SUCCESS: success.
  *         - others: refer to error code in ble_err.h.
  */
-LE_ERR_STATE LeGapRemoveFromWhiteList(LE_BT_ADDR_T *bt_addr);
+LE_ERR_STATE LeGapRemoveFromResolvingList(LE_BT_ADDR_T *bt_addr);
 
 /**
  * @brief    Read ADV channel txpower.

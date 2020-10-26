@@ -39,8 +39,8 @@ void *ofc_Init(char *url)
     #if 1 // httpclient can not handle gzip/deflate encoding
     h_odc->http.header = NULL;
     #else
-    h_odc->http.header = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n" \
-                         "Accept-Encoding: gzip, deflate\r\n";
+    //h_odc->http.header = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n" \
+    //                     "Accept-Encoding: gzip, deflate\r\n";
     #endif
     
 #if defined(SUPPORT_ITLS)
@@ -51,6 +51,10 @@ void *ofc_Init(char *url)
     }
 #endif
     h_odc->url = url;
+
+    #if (ALI_AUTO_TEST == 1)
+    printf("OTA_DATA_URL: %s\n\n", h_odc->url);
+    #endif
 
     return h_odc;
 }
@@ -66,19 +70,18 @@ int32_t ofc_Fetch(void *handle, char *buf, uint32_t buf_len, uint32_t timeout_s)
     int                 iHttpRet = FAIL_RETURN;
     int                 diff;
     otahttp_Struct_pt   h_odc = (otahttp_Struct_pt)handle;
-
-    extern volatile uint8_t g_u8UseHttp;
+    uint8_t u8CurrStatus = g_u8UseHttp;
 
     h_odc->http_data.response_buf = buf;
     h_odc->http_data.response_buf_len = buf_len;
     diff = h_odc->http_data.response_content_len - h_odc->http_data.retrieve_len;
 
-    g_u8UseHttp = 1;
+    g_u8UseHttp = 1; // Disable TLS for Ali-OTA
 
     iHttpRet = httpclient_common_(&h_odc->http, h_odc->url, 80, 0, HTTPCLIENT_GET, timeout_s * 1000,
                                   &h_odc->http_data);
 
-    g_u8UseHttp = 0;
+    g_u8UseHttp = u8CurrStatus; // restore g_u8UseHttp
 
     if(iHttpRet != SUCCESS_RETURN) {
         OTA_LOG_ERROR("fetch firmware failed");

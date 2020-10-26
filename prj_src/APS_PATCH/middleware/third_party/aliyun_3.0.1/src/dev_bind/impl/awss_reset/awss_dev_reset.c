@@ -327,6 +327,13 @@ int iotx_sdk_reset_local(void)
     ret = iotx_guider_clear_dynamic_url();
 
 #if defined(SUPPORT_TLS) && defined(BUILD_AOS)
+    #ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+
+    }
+    else
+    #endif
     ret |= HAL_SSL_Del_KV_Session_Ticket();
 #endif
 

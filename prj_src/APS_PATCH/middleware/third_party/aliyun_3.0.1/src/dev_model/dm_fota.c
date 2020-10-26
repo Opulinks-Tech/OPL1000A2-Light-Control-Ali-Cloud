@@ -4,6 +4,18 @@
 #include "iotx_dm_internal.h"
 #include "cmsis_os.h"
 
+#include "infra_config.h"
+
+#if (ALI_AUTO_TEST == 1)
+    uint32_t g_u32OtaTrigTick;
+    int32_t g_s32OtaTrigTickOverFlow;
+    uint32_t g_u32OtaFinTick;
+    int32_t g_s32OtaFinTickOverFlow;
+#else
+#undef printf
+#define printf(...)
+#endif
+
 #if defined(OTA_ENABLED) && !defined(BUILD_AOS)
 
 static dm_fota_ctx_t g_dm_fota_ctx;
@@ -65,7 +77,7 @@ extern void HAL_Reboot();
 extern void iot_save_all_cfg(void);
 
 #if 1
-SHM_DATA int dm_fota_perform_sync(_OU_ char *output, _IN_ int output_len)
+int dm_fota_perform_sync(_OU_ char *output, _IN_ int output_len)
 {
     int iRet = DM_INVALID_PARAMETER;
     int res = 0, file_download = 0;
@@ -105,6 +117,13 @@ SHM_DATA int dm_fota_perform_sync(_OU_ char *output, _IN_ int output_len)
     IOT_OTA_Ioctl(ota_handle, IOT_OTAG_RESET_FETCHED_SIZE, ota_handle, 4);
     /* Prepare Write Data To Storage */
     HAL_Firmware_Persistence_Start();
+
+    #if (ALI_AUTO_TEST == 1)
+    printf("\n### Ln. %d : Auto FW OTA Start ###, 0\n\n", __LINE__);
+
+    osKernelSysTickEx(&g_u32OtaTrigTick, &g_s32OtaTrigTickOverFlow);
+    #endif
+
     while (1) {
         file_download = IOT_OTA_FetchYield(ota_handle, output, output_len, 1);
         if (file_download < 0) {
@@ -177,9 +196,58 @@ done:
     ctx->is_report_new_config = 0;
 
 error:
+    #if (ALI_AUTO_TEST == 1)
+    if((!u8OtaIgnored) && (iRet == SUCCESS_RETURN))
+    {
+        osKernelSysTickEx(&g_u32OtaFinTick, &g_s32OtaFinTickOverFlow);
+    
+        if ( (g_s32OtaFinTickOverFlow - g_s32OtaTrigTickOverFlow) != 0 )
+        {
+            if ( g_u32OtaFinTick >= g_u32OtaTrigTick )
+            {
+                printf("\n### Ln. %d : Auto FW OTA Success ###, %d\n\n", __LINE__, 0xFFFFFFFF);
+            }
+            else
+            {
+                printf("\n### Ln. %d : Auto FW OTA Success ###, %d\n\n", __LINE__, (0xFFFFFFFF - g_u32OtaTrigTick) + g_u32OtaFinTick);
+            }
+        }
+        else
+        {
+            printf("\n### Ln. %d : Auto FW OTA Success ###, %d\n\n", __LINE__, g_u32OtaFinTick - g_u32OtaTrigTick);
+        }
+    }
+    else
+    {
+        osKernelSysTickEx(&g_u32OtaFinTick, &g_s32OtaFinTickOverFlow);
+    
+        if ( (g_s32OtaFinTickOverFlow - g_s32OtaTrigTickOverFlow) != 0 )
+        {
+            if ( g_u32OtaFinTick >= g_u32OtaTrigTick )
+            {
+                printf("\n### Ln. %d : Auto FW OTA Fail ###, %d\n\n", __LINE__, 0xFFFFFFFF);
+            }
+            else
+            {
+                printf("\n### Ln. %d : Auto FW OTA Fail ###, %d\n\n", __LINE__, (0xFFFFFFFF - g_u32OtaTrigTick) + g_u32OtaFinTick);
+            }
+        }
+        else
+        {
+            printf("\n### Ln. %d : Auto FW OTA Fail ###, %d\n\n", __LINE__, g_u32OtaFinTick - g_u32OtaTrigTick);
+        }
+    }
+    #endif
+
     if(u8OtaIgnored)
     {
         printf("OTA Ignored\n");
+
+        #if (ALI_AUTO_TEST == 1)
+        // Reboot device to run OTA test again
+        osDelay(100);
+        HAL_Reboot();
+        #endif
     }
     else
     {

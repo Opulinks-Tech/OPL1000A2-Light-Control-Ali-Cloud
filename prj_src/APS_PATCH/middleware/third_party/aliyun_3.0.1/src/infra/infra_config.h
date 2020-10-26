@@ -73,9 +73,10 @@ typedef unsigned char uint8_t;
 
 // modified for ali_lib by Jeff, 20190525
 // redefine the HAL_Printf function
-#if 1   // the modified
+#if 0   // the modified
 #define HAL_Printf  printf
 #else   // the original
+#define HAL_Printf(...)
 #endif
 
 #define ALI_SINGLE_TASK
@@ -99,11 +100,28 @@ typedef unsigned char uint8_t;
 
 #ifdef SUPPORT_TLS
 #define ALI_HTTP_COMPATIBLE
+extern volatile uint8_t g_u8UseHttp;
 #endif
 
-#define timer_dbg           printf
-//#define timer_dbg(...)
+//#define timer_dbg           printf
+#define timer_dbg(...)
 
 #define SHM_DATA    __attribute__((section("SHM_REGION")))
+
+
+//#define ALI_AUTO_OTA
+//#define ALI_AUTO_PAIR
+//#define ALI_AUTO_POST
+
+#if (defined ALI_AUTO_OTA)
+    #define ALI_AUTO_TEST       1
+#elif (defined ALI_AUTO_PAIR)
+    #define ALI_AUTO_TEST       2
+#elif (defined ALI_AUTO_POST)
+    #define ALI_AUTO_TEST       3
+#else
+    #define ALI_AUTO_TEST       0
+#endif
+
 
 #endif

@@ -29,7 +29,7 @@
 #include "at_cmd_app_patch.h"
 #endif
 
-#ifdef ADA_REMOTE_CTRL
+#ifdef BLEWIFI_MIN_LOG
 #undef printf
 #define printf(...)
 #endif
@@ -45,7 +45,7 @@ extern breeze_apinfo_t g_apInfo;
 //extern uint8_t g_Ali_wifi_provision;
 #endif
 
-SHM_DATA wifi_config_t wifi_config_req_connect;
+/*SHM_DATA */wifi_config_t wifi_config_req_connect;
 uint32_t g_ulBleWifi_Wifi_BeaconTime;
 volatile uint32_t g_u32MpScanCnt = 0;;
 
@@ -427,7 +427,7 @@ static void BleWifi_Wifi_SendSingleScanReport(uint16_t apCount, blewifi_scan_inf
     free(data);
 }
 
-SHM_DATA int BleWifi_Wifi_SendScanReport(void)
+int BleWifi_Wifi_SendScanReport(void)
 {
     wifi_scan_info_t *ap_list = NULL;
     blewifi_scan_info_t *blewifi_ap_list = NULL;
@@ -641,7 +641,7 @@ static int BleWifi_Wifi_EventHandler_Start(wifi_event_id_t event_id, void *data,
 
 static int BleWifi_Wifi_EventHandler_Connected(wifi_event_id_t event_id, void *data, uint16_t length)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef BLEWIFI_MIN_LOG
 #else
     uint8_t reason = *((uint8_t*)data);
     
@@ -655,7 +655,7 @@ static int BleWifi_Wifi_EventHandler_Connected(wifi_event_id_t event_id, void *d
 
 static int BleWifi_Wifi_EventHandler_Disconnected(wifi_event_id_t event_id, void *data, uint16_t length)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef BLEWIFI_MIN_LOG
 #else
     uint8_t reason = *((uint8_t*)data);
     
@@ -748,7 +748,7 @@ static int BleWifi_Wifi_EventHandler_GotIp(wifi_event_id_t event_id, void *data,
 
 static int BleWifi_Wifi_EventHandler_ConnectionFailed(wifi_event_id_t event_id, void *data, uint16_t length)
 {
-#ifdef ADA_REMOTE_CTRL
+#ifdef BLEWIFI_MIN_LOG
 #else
     uint8_t reason = *((uint8_t*)data);
 
@@ -800,7 +800,7 @@ void BleWifi_Wifi_Init(void)
     wifi_init(NULL, NULL);
 
     /* Wi-Fi operation start */
-    wifi_start();    
+    wifi_start();
     wifi_auto_connect_set_ap_num(1);
 
     /* Init the beacon time (ms) */

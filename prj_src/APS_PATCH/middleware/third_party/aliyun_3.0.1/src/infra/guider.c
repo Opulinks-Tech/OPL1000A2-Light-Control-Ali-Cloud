@@ -35,6 +35,8 @@
         } \
     } while(0)
 #endif
+//#undef printf
+//#define printf(...)
 
 extern int HAL_Kv_Set(const char *key, const void *val, int len, int sync);
 extern int HAL_Kv_Get(const char *key, void *val, int *buffer_len);
@@ -100,13 +102,13 @@ iotx_conn_info_pt iotx_conn_info_reload(void)
 {
     iotx_conn_info_release_();
     if (iotx_guider_authenticate(&iotx_conn_info) < 0) {
-        printf("\n\niotx_guider_authenticate is NULL\n!");
+        //printf("\n\niotx_guider_authenticate is NULL\n!");
         return NULL;
     }
     return &iotx_conn_info;
 }
 
-
+#if 0
 static char *get_secure_mode_str(secure_mode_e secure_mode)
 {
     static char *secure_mode_str = NULL;
@@ -164,6 +166,7 @@ static char *get_secure_mode_str(secure_mode_e secure_mode)
 
     return secure_mode_str;
 }
+#endif
 
 const char *domain_mqtt_direct[] = {
     "iot-as-mqtt.cn-shanghai.aliyuncs.com",    /* Shanghai */
@@ -273,7 +276,7 @@ int iotx_guider_set_dynamic_mqtt_url(char *p_mqtt_url)
     len = strlen(p_mqtt_url) + 1;
     if (len > GUIDER_DYNAMIC_URL_LEN - 2)
     {
-        printf("\nlen is err\n");
+        //printf("\nlen is err\n");
         return -1;
     }
 
@@ -319,7 +322,7 @@ static char *guider_itoa_decimal(int value, char *string)
             *ptr++ = (char)(d + 0x30);
             value -= (d * i);
             flag = 1;
-            printf("ptr:%s\r\n", ptr);
+            //printf("ptr:%s\r\n", ptr);
         }
     }
 
@@ -350,14 +353,14 @@ int iotx_guider_get_region_id(void)
 
     if (0 != HAL_Kv_Get(KV_REGION_ID_KEY, region_id_str, &len))
     {
-        printf("\nkv get region id fail\n");
+        //printf("\nkv get region id fail\n");
         return -1;
     }
 
     region_id = atoi(region_id_str);
     if (region_id < 0 || region_id > IOTX_CLOUD_REGION_MAX)
     {
-        printf("\ninvalid regionid:%d\n", region_id);
+        //printf("\ninvalid regionid:%d\n", region_id);
         return -1;
     }
 
@@ -669,7 +672,7 @@ int iotx_guider_fill_conn_string(char *dst, int len, const char *fmt, ...)
 
 static int printf_parting_line(void)
 {
-    return printf("%s", ".................................\r\n");
+    return 0;//printf("%s", ".................................\r\n");
 }
 
 static void guider_print_conn_info(iotx_conn_info_t *conn)
@@ -677,12 +680,12 @@ static void guider_print_conn_info(iotx_conn_info_t *conn)
     int pub_key_len = 0;
 
 //    LITE_ASSERT(conn);
-    printf_parting_line();
-    printf("%10s : %-s\r\n", "Host", conn->host_name);
-    printf("%10s : %d\r\n", "Port", conn->port);
+    //printf_parting_line();
+    //printf("%10s : %-s\r\n", "Host", conn->host_name);
+    //printf("%10s : %d\r\n", "Port", conn->port);
 #if CONFIG_GUIDER_DUMP_SECRET
-    printf("%10s : %-s\r\n", "User", conn->username);
-    printf("%10s : %-s\r\n", "PW", conn->password);
+    //printf("%10s : %-s\r\n", "User", conn->username);
+    //printf("%10s : %-s\r\n", "PW", conn->password);
 #endif
     HAL_Printf("%10s : %-s\r\n", "ClientID", conn->client_id);
     if (conn->pub_key)
@@ -692,7 +695,7 @@ static void guider_print_conn_info(iotx_conn_info_t *conn)
             HAL_Printf("%10s : ('... %.16s ...')\r\n", "CA", conn->pub_key + strlen(conn->pub_key) - 63);
     }
 
-    printf_parting_line();
+    //printf_parting_line();
 }
 
 static void guider_print_dev_guider_info(iotx_device_info_t *dev,
@@ -708,22 +711,22 @@ static void guider_print_dev_guider_info(iotx_device_info_t *dev,
     memset(ds, 0, sizeof(ds));
     memcpy(ds, dev->device_secret, sizeof(ds) - 1);
 
-    printf_parting_line();
-    printf("%5s : %-s\r\n", "PK", dev->product_key);
-    printf("%5s : %-s\r\n", "DN", dev->device_name);
-    printf("%5s : %-s\r\n", "DS", dev->device_secret);
-    printf("%5s : %-s\r\n", "PID", partner_id);
-    printf("%5s : %-s\r\n", "MID", module_id);
+    //printf_parting_line();
+    //printf("%5s : %-s\r\n", "PK", dev->product_key);
+    //printf("%5s : %-s\r\n", "DN", dev->device_name);
+    //printf("%5s : %-s\r\n", "DS", dev->device_secret);
+    //printf("%5s : %-s\r\n", "PID", partner_id);
+    //printf("%5s : %-s\r\n", "MID", module_id);
 
     if (guider_url && strlen(guider_url) > 0)
     {
         HAL_Printf("%5s : %s\r\n", "URL", guider_url);
     }
 
-    printf("%5s : %s\r\n", "SM", get_secure_mode_str((secure_mode_e)secure_mode));
-    printf("%5s : %s\r\n", "TS", time_stamp);
+    //printf("%5s : %s\r\n", "SM", get_secure_mode_str((secure_mode_e)secure_mode));
+    //printf("%5s : %s\r\n", "TS", time_stamp);
 #if CONFIG_GUIDER_DUMP_SECRET
-    printf("%5s : %s\r\n", "Sign", guider_sign);
+    //printf("%5s : %s\r\n", "Sign", guider_sign);
 #endif
     printf_parting_line();
 
@@ -760,6 +763,13 @@ static secure_mode_e guider_get_secure_mode(connect_method_e connect_method)
     if (CONNECT_PREAUTH == connect_method)
     {
 #ifdef SUPPORT_TLS
+        #ifdef ALI_HTTP_COMPATIBLE
+        if(g_u8UseHttp)
+        {
+            secure_mode = MODE_TCP_GUIDER_PLAIN;
+        }
+        else
+        #endif
         secure_mode = MODE_TLS_GUIDER;
 #else
         secure_mode = MODE_TCP_GUIDER_PLAIN;
@@ -771,6 +781,13 @@ static secure_mode_e guider_get_secure_mode(connect_method_e connect_method)
         secure_mode = MODE_ITLS_DNS_ID2;
 #else
 #ifdef SUPPORT_TLS
+        #ifdef ALI_HTTP_COMPATIBLE
+        if(g_u8UseHttp)
+        {
+            secure_mode = MODE_TCP_DIRECT_PLAIN;
+        }
+        else
+        #endif
         secure_mode = MODE_TLS_DIRECT;
 #else
         secure_mode = MODE_TCP_DIRECT_PLAIN;
@@ -812,6 +829,18 @@ static int guider_get_host_port(
     char *iotx_payload = NULL;
     const char *pvalue;
 
+#ifdef ALI_HTTP_COMPATIBLE
+    uint8_t u8CurrStatus = g_u8UseHttp;
+
+    g_u8UseHttp = 0; // Enable TLS for pre-auth
+
+    /*
+    if(g_u8UseHttp)
+    {
+        iotx_port = 80;
+    }
+    */
+#else //#ifdef ALI_HTTP_COMPATIBLE
 #ifndef SUPPORT_TLS
     iotx_port = 80;
 #endif
@@ -819,6 +848,7 @@ static int guider_get_host_port(
 #if defined(TEST_OTA_PRE)
     iotx_port = 80;
 #endif
+#endif //#ifdef ALI_HTTP_COMPATIBLE
 
     /*
     {
@@ -848,7 +878,7 @@ static int guider_get_host_port(
                    iotx_ca_get()
 #endif
     );
-    printf("\n\nMQTT URL:\n");
+    //printf("\n\nMQTT URL:\n");
     iotx_facility_json_print(iotx_payload, LOG_INFO_LEVEL, '>');
 
     pvalue = LITE_json_value_of("code", iotx_payload, MEM_MAGIC, "sys.preauth");
@@ -903,6 +933,9 @@ EXIT:
         pvalue = NULL;
     }
 
+    #ifdef ALI_HTTP_COMPATIBLE
+    g_u8UseHttp = u8CurrStatus; // restore g_u8UseHttp
+    #endif
     return ret;
 }
 
@@ -983,6 +1016,13 @@ static int get_non_itls_host_and_port(sdk_impl_ctx_t *ctx, char *product_key, io
         if (0 == conn->port)
         {
 #ifdef SUPPORT_TLS
+            #ifdef ALI_HTTP_COMPATIBLE
+            if(g_u8UseHttp)
+            {
+                conn->port = 1883;
+            }
+            else
+            #endif
             conn->port = 443;
 #else
             conn->port = 1883;
@@ -1245,7 +1285,7 @@ static int guider_get_conn_info(iotx_conn_info_t *conn, iotx_device_info_t *p_de
     p_iotx_conn_host = SYS_GUIDER_MALLOC_(HOST_ADDRESS_LEN);
     if (!p_iotx_conn_host)
     {
-        printf("\np_iotx_conn_host=-1\n\n");
+        //printf("\np_iotx_conn_host=-1\n\n");
         rc = -1;
         goto EXIT;
     }
@@ -1253,7 +1293,7 @@ static int guider_get_conn_info(iotx_conn_info_t *conn, iotx_device_info_t *p_de
     if (0 != guider_get_host_port(p_guider_url, p_request_buf,
                                   p_iotx_conn_host, &iotx_conn_port))
     {
-        printf("Request MQTT URL failed:%d", region_id);
+        //printf("Request MQTT URL failed:%d", region_id);
         if (-1 != region_id)
         {
             //clear dynamic url info when can not get mqtt connect info by regionid
@@ -1265,7 +1305,7 @@ static int guider_get_conn_info(iotx_conn_info_t *conn, iotx_device_info_t *p_de
     p_mqtt_url = SYS_GUIDER_MALLOC_(GUIDER_URL_LEN);
     if (!p_mqtt_url)
     {
-        printf("no mem");
+        //printf("no mem");
         goto EXIT;
     }
 

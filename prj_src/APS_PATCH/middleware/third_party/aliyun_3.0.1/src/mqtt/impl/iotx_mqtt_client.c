@@ -8,6 +8,8 @@
 #endif
 
 #include "infra_config.h"
+#undef printf
+#define printf(...)
 
 static int _in_yield_cb;
 extern iotx_conn_info_pt iotx_conn_info_reload(void);
@@ -103,7 +105,7 @@ void iotx_mc_set_client_state(iotx_mc_client_t *pClient, iotx_mc_state_t newStat
     HAL_MutexUnlock(pClient->lock_generic);
 }
 
-static iotx_mc_state_t iotx_mc_get_client_state(iotx_mc_client_t *pClient)
+/*static */iotx_mc_state_t iotx_mc_get_client_state(iotx_mc_client_t *pClient)
 {
     iotx_mc_state_t state;
     HAL_MutexLock(pClient->lock_generic);
@@ -2760,7 +2762,7 @@ void *wrapper_mqtt_init(iotx_mqtt_param_t *mqtt_params)
     return pclient;
 }
 
-int wrapper_mqtt_connect(void *client)
+SHM_DATA int wrapper_mqtt_connect(void *client)
 {
     int rc = FAIL_RETURN;
     int userKeepAliveInterval = 0;

@@ -219,6 +219,13 @@ SHM_DATA int32_t IOT_Sign_MQTT(iotx_mqtt_region_types_t region, iotx_dev_meta_in
 
     /* setup port */
 #ifdef SUPPORT_TLS
+    #ifdef ALI_HTTP_COMPATIBLE
+    if(g_u8UseHttp)
+    {
+        signout->port = 1883;
+    }
+    else
+    #endif
     signout->port = 443;
 #else
     signout->port = 1883;

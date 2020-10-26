@@ -1,0 +1,60 @@
+ 
+..\..\targets\opl1000\Output\Objects\opl1000_patch_m3.lib 
+========================================================================
+
+Object file sizes
+
+      Code (inc. data)   RO Data    RW Data    ZI Data      Debug
+
+     21394       5866       1660        289        255    5204119   Grand Totals
+     21394       5866       1660        289          0          0   ROM Totals
+
+========================================================================
+
+    Total RO  Size (Code + RO Data)                23054 (  22.51kB)
+    Total RW  Size (RW Data + ZI Data)               544 (   0.53kB)
+    Total ROM Size (Code + RO Data + RW Data)      23343 (  22.80kB)
+
+========================================================================
+
+ 
+ 
+..\..\targets\opl1000\Output\Objects\opl1000_sdk_m3.lib 
+========================================================================
+
+Object file sizes
+
+      Code (inc. data)   RO Data    RW Data    ZI Data      Debug
+
+     28700       6856        800        183       1076    6305657   Grand Totals
+     28700       6856        800        183          0          0   ROM Totals
+
+========================================================================
+
+    Total RO  Size (Code + RO Data)                29500 (  28.81kB)
+    Total RW  Size (RW Data + ZI Data)              1259 (   1.23kB)
+    Total ROM Size (Code + RO Data + RW Data)      29683 (  28.99kB)
+
+========================================================================
+
+ 
+ 
+..\..\targets\opl1000\Output\Objects\opl1000_app_m3_lite.axf 
+========================================================================
+
+Object file sizes
+
+      Code (inc. data)   RO Data    RW Data    ZI Data      Debug
+
+     28964       7966        908        396        276     832105   Grand Totals
+     28964       7966        908        396          0          0   ROM Totals
+
+========================================================================
+
+    Total RO  Size (Code + RO Data)                29872 (  29.17kB)
+    Total RW  Size (RW Data + ZI Data)               672 (   0.66kB)
+    Total ROM Size (Code + RO Data + RW Data)      30268 (  29.56kB)
+
+========================================================================
+
+ 

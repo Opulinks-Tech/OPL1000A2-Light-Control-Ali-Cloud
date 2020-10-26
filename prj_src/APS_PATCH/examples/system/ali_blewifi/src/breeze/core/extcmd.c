@@ -40,6 +40,8 @@ int g_nRegion_Id = 0; //After binding, need to save again.
 #define UTF8_MAX_SSID     32
 #define UTF8_MAX_PASSWORD 64
 
+#undef printf
+#define printf(...)
 enum {
     BLE_AWSS_CTYPE_SSID     = 0x01,
     BLE_AWSS_CTYPE_PASSWORD = 0x02,
@@ -87,7 +89,7 @@ extern ret_code_t auth_get_device_secret(uint8_t *p_secret, int *p_length);
 
 extcmd_t g_extcmd;
 breeze_apinfo_t comboinfo;
-static uint8_t g_auth_kv_val[16 + 32 + 2] = {0};
+static SHM_DATA uint8_t g_auth_kv_val[16 + 32 + 2] = {0};
 static int g_auth_kv_val_len = 0;
 static uint8_t g_auth_need_set = 0;
 //const static char m_sdk_version[] = ":" BZ_VERSION;
@@ -114,7 +116,7 @@ static ret_code_t ext_cmd0A_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t 
 static ret_code_t ext_cmd0B_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen);
 static ret_code_t ext_cmd0C_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen);
 
-static const ext_tlv_type_handler_t
+static SHM_DATA const ext_tlv_type_handler_t
   m_tlv_type_handler_table[] = /**< TLV type handler table. */
   { { 0x01, ext_cmd01_rsp}, 
     { 0x02, ext_cmd02_rsp},
@@ -135,7 +137,7 @@ static const ext_tlv_type_handler_t
     { 0x0C, ext_cmd0C_rsp},
   };
 
-static ret_code_t ext_cmd01_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd01_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_ENOMEM;
     uint8_t len;
@@ -151,7 +153,7 @@ static ret_code_t ext_cmd01_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t 
     return err_code;
 }
 
-static ret_code_t ext_cmd02_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd02_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_ENOMEM;
     uint8_t len;
@@ -171,7 +173,7 @@ static ret_code_t ext_cmd02_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t 
 }
 
 
-static ret_code_t ext_cmd03_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd03_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_ENOMEM;
     uint8_t len;
@@ -190,7 +192,7 @@ static ret_code_t ext_cmd03_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t 
     return err_code;
 }
 
-static ret_code_t ext_cmd04_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd04_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_ENOMEM;
 
@@ -206,7 +208,7 @@ static ret_code_t ext_cmd04_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t 
     return err_code;
 }
 
-static void network_signature_calculate(uint8_t *p_buff)
+static SHM_DATA void network_signature_calculate(uint8_t *p_buff)
 {
     uint8_t str_id[8];//, n;
 //    uint8_t random_str[32];
@@ -247,7 +249,7 @@ static void network_signature_calculate(uint8_t *p_buff)
     sha256_final(&context, p_buff);
 }
 
-static ret_code_t ext_cmd05_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd05_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_ENOMEM;
 
@@ -592,7 +594,7 @@ end:
 }
 #endif
 
-static ret_code_t ext_cmd0B_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
+static SHM_DATA ret_code_t ext_cmd0B_rsp(uint8_t *p_buff, uint8_t *p_blen, const uint8_t *p_data, uint8_t dlen)
 {
     ret_code_t err_code = BZ_SUCCESS;
     uint8_t idx = 0, tlvtype, tlvlen;
@@ -919,7 +921,7 @@ static void get_os_info(void)
     g_extcmd.tlv_01_rsp_len = suffix_len;
 }
 
-ret_code_t extcmd_init(ali_init_t const *p_init, tx_func_t tx_func)
+SHM_DATA ret_code_t extcmd_init(ali_init_t const *p_init, tx_func_t tx_func)
 {
     memset(&g_extcmd, 0, sizeof(extcmd_t));
     get_os_info();

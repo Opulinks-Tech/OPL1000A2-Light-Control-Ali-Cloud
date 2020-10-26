@@ -72,12 +72,21 @@
 #include <string.h>
 #include "tcp_if.h"
 #include "tcp_patch.h"
+#include "hal_tick.h"
 
 /* As initial send MSS, we use TCP_MSS but limit it to 536. */
 #if TCP_MSS > 536
 #define INITIAL_MSS 536
 #else
 #define INITIAL_MSS TCP_MSS
+#endif
+
+#ifndef TCP_LOCAL_PORT_RANGE_START
+/* From http://www.iana.org/assignments/port-numbers:
+   "The Dynamic and/or Private Ports are those from 49152 through 65535" */
+#define TCP_LOCAL_PORT_RANGE_START        0xc000
+#define TCP_LOCAL_PORT_RANGE_END          0xffff
+#define TCP_ENSURE_LOCAL_PORT_RANGE(port) ((u16_t)(((port) & ~TCP_LOCAL_PORT_RANGE_START) + TCP_LOCAL_PORT_RANGE_START))
 #endif
 
 #if LWIP_TCP_KEEPALIVE
@@ -92,16 +101,20 @@
 uint8_t g_memp_num_tcp_pcb = 0;
 #endif
 
+#if !OPL_LWIP
 static const u8_t tcp_backoff[13] =
     { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+#endif
+
  /* Times per slowtmr hits */
 static const u8_t tcp_persist_backoff[7] = { 3, 6, 12, 24, 48, 96, 120 };
 
 extern u8_t tcp_timer_ctr;
+extern u16_t tcp_port;
 
 extern err_t unlock_netconn_state(void *arg, struct tcp_pcb *pcb);
 
-#if 0 // unused when #undef LWIP_DEBUG
+#if 0
 static const char * const tcp_state_str[] = {
   "CLOSED",
   "LISTEN",
@@ -116,6 +129,15 @@ static const char * const tcp_state_str[] = {
   "TIME_WAIT"
 };
 #endif
+
+static uint32_t sys_rand(void)
+{
+    uint32_t counter = Hal_Tick_Diff(0);
+    uint32_t s;
+    srand(counter);
+    s = rand();
+    return s;
+}
 
 /**
  * Called every 500 ms and implements the retransmission timer and the timer that
@@ -198,8 +220,12 @@ tcp_slowtmr_start:
           /* Double retransmission time-out unless we are trying to
            * connect to somebody (i.e., we are in SYN_SENT). */
           if (pcb->state != SYN_SENT) {
+#if OPL_LWIP
+              pcb->rto = 3; // (6=3000 ms, 3=1500 ms)
+#else
             u8_t backoff_idx = LWIP_MIN(pcb->nrtx, sizeof(tcp_backoff)-1);
             pcb->rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
+#endif
           }
 
           /* Reset the retransmission timer. */
@@ -224,7 +250,7 @@ tcp_slowtmr_start:
     }
 #if OPL_LWIP
     /* Check if this PCB has stayed too long in FIN-WAIT-1 or FIN-WAIT-2 */
-    if (pcb->state == FIN_WAIT_1 || FIN_WAIT_2) {
+    if ((pcb->state == FIN_WAIT_1) || (pcb->state == FIN_WAIT_2)) {
 #else
     /* Check if this PCB has stayed too long in FIN-WAIT-2 */
     if (pcb->state == FIN_WAIT_2) {
@@ -274,7 +300,6 @@ tcp_slowtmr_start:
       tcp_segs_free(pcb->ooseq);
       pcb->ooseq = NULL;
       LWIP_DEBUGF(TCP_CWND_DEBUG, ("tcp_slowtmr: dropping OOSEQ queued data\n"));
-      printf("tcp_slowtmr: dropping OOSEQ queued data\n");
     }
 #endif /* TCP_QUEUE_OOSEQ */
 
@@ -540,8 +565,13 @@ tcp_alloc_patch(u8_t prio)
     /* As initial send MSS, we use TCP_MSS but limit it to 536.
        The send MSS is updated when an MSS option is received. */
     pcb->mss = INITIAL_MSS;
+#if OPL_LWIP
+    pcb->rto = 1500 / TCP_SLOW_INTERVAL;
+    pcb->sv = 1500 / TCP_SLOW_INTERVAL;
+#else
     pcb->rto = 3000 / TCP_SLOW_INTERVAL;
     pcb->sv = 3000 / TCP_SLOW_INTERVAL;
+#endif
     pcb->rtime = -1;
     pcb->cwnd = 1;
     pcb->tmr = tcp_ticks;
@@ -604,6 +634,51 @@ tcp_kill_state_patch(enum tcp_state state)
   }
 }
 
+void tcp_init_patch(void)
+{
+#if LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND)
+  tcp_port = TCP_ENSURE_LOCAL_PORT_RANGE(sys_rand());
+#endif /* LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND) */
+}
+
+/**
+ * Allocate a new local TCP port.
+ *
+ * @return a new (free) local TCP port number
+ */
+static u16_t tcp_new_port_patch(void)
+{
+  u8_t i;
+  u16_t n = 0;
+  struct tcp_pcb *pcb;
+
+again:
+
+#if OPL_RANDOM_TCP_PORT
+  tcp_port = sys_rand() % (TCP_LOCAL_PORT_RANGE_END - TCP_LOCAL_PORT_RANGE_START);
+  tcp_port += TCP_LOCAL_PORT_RANGE_START;
+#else
+  if (tcp_port++ == TCP_LOCAL_PORT_RANGE_END) {
+    tcp_port = TCP_LOCAL_PORT_RANGE_START;
+  }
+#endif
+  LWIP_DEBUGF(TCP_DEBUG, ("tcp_new_port: %d\r\n", tcp_port));
+
+  /* Check all PCB lists. */
+  for (i = 0; i < NUM_TCP_PCB_LISTS; i++) {
+    for (pcb = *tcp_pcb_lists[i]; pcb != NULL; pcb = pcb->next) {
+      if (pcb->local_port == tcp_port) {
+        if (++n > (TCP_LOCAL_PORT_RANGE_END - TCP_LOCAL_PORT_RANGE_START)) {
+          return 0;
+        }
+        goto again;
+      }
+    }
+  }
+  return tcp_port;
+}
+
+
 #if OPL_LWIP
 int tcp_kill_pcb_check_threshold_set(uint8_t num)
 {
@@ -622,8 +697,9 @@ void lwip_load_interface_tcp_patch(void)
 #if OPL_LWIP
     g_memp_num_tcp_pcb = MEMP_NUM_TCP_PCB;
 #endif
-
+    tcp_init_adpt       = tcp_init_patch;
     tcp_slowtmr_adpt    = tcp_slowtmr_patch;
     tcp_alloc_adpt      = tcp_alloc_patch;
+    tcp_new_port_adpt   = tcp_new_port_patch;
     tcp_kill_state_adpt = tcp_kill_state_patch;
 }

@@ -160,6 +160,7 @@ uint8_t light_ctrl_set_brightness(uint8_t brightness);
 uint8_t light_ctrl_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value, uint8_t fade, uint8_t f_led_status_update, uint8_t rgb_lighten_per);
 uint8_t light_ctrl_set_ctb(uint32_t color_temperature, uint8_t brightness, uint8_t fade, uint8_t status_update);
 uint8_t light_ctrl_set_switch(uint8_t status);
+uint8_t light_ctrl_set_rhyon(uint8_t status);
 void light_ctrl_set_fade_period_ms(uint32_t fade_period_ms);
 void light_ctrl_set_fade_step_ms(uint32_t fade_step_ms);
 
@@ -184,6 +185,7 @@ uint32_t light_ctrl_get_color_temperature(void);
 uint8_t light_ctrl_get_brightness(void);
 uint8_t light_ctrl_get_ctb(uint8_t *brightness);
 uint8_t light_ctrl_get_switch(void);
+uint8_t light_ctrl_get_rhyon(void);
 uint8_t light_ctrl_get_mode(void);
 
 
